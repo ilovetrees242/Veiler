@@ -1,1 +1,36 @@
 #!/bin/sh
+
+PKGREPO="https://ilovetrees242.github.io/DevHelp/Website/Packages/"
+
+
+case $1 in
+	unveil)
+		
+	;;
+	veil)
+		e
+	;;
+	expand)
+		e
+	;;
+	strengthen)
+		e
+	;;
+	help)
+		e
+	;;
+	*)
+		echo "$0 Usage: $0 <OPTIONS> <COMMAND>"
+		echo "$0 <OPTIONS> unveil|veil [PACKAGE]"
+		echo "$0 Options: --verbose: Displays verbose output
+			          --quiet  : Displays quiet output, not too detailed.
+				  --documentation: Enables documentation (this might install extra dependencies)
+				  --test   : Enables test harnesses
+		"
+		echo "$0 unveil: Installs a package from source."
+		echo "$0 veil  : Uninstalls a package installed on the system"
+		echo "$0 expand: Syncs the package repository so that it finds newer versions."
+		echo "$0 strengthen: Updates all packages installed on the system"
+		echo "$0 help: Displays this output"
+	;;
+esac
