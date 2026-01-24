@@ -4,3 +4,10 @@ This repository contains code related to my package manager for LFS. I want to u
 # NOTE
 
 This was made for my use mostly, its still under development so some packages might not get managed properly or some packages might break other packages. When I think it's atleast somewhat usable I will publish its code in releases 
+
+# Packages needed by Veiler
+
+-> Wget
+-> Make
+-> GCC
+-> Patch

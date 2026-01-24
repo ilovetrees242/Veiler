@@ -1,75 +1,144 @@
 #!/bin/sh
+PATH="$PATH:/etc/VeilerTools/usr/bin/"
 PKGREPO="https://ilovetrees242.github.io/DevHelp/Website/Packages/"
+VEILERTESTS=0
+VEILERQUIET=0
+VEILERDOC=0
+USETOOLS=0
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[0;37m'
+NC='\033[0m'
+if [ $(id -u) != 0 ]; then
+    echo -e "${RED}You are not root! run as root with: sudo $0${NC}"
+    exit 1
+fi
+printf "${BLUE}Checking if required packages are installed on your computer${NC}"
+for i in 1 2 3; do
+    sleep 1
+    printf "${WHITE}.${NC}"
+done; printf "\n"
+for PACKAGE in wget awk gcc make patch grep tar readelf; do
+    $PACKAGE --version 2&> /dev/null 
+    if [ $? -eq 127 ]; then
+        echo -e "${YELLOW}$PACKAGE is not installed on your system! Veiler will use prebuilt binaries from the tool directory.${NC}"
+        PATH=$PATH:/usr/lib/Veiler/Tools/usr/bin/
+        USETOOLS=1
+    fi
+done
+if [ $USETOOLS -eq 1 ]; then
+    echo -e "${CYAN}Use prebuilt tools enabled.${NC}"
+fi
+parse_options(){
+    argscount=$#
+    for((i=0; i < $argscount; i++)){
+        case $1 in
+            --quiet)
+                VEILERQUIET=1
+                echo -e "${CYAN}Quiet mode enabled.${NC}"
+            ;;
+            --documentation)
+                VEILERDOC=1
+                echo -e "${CYAN}Documentation enabled.${NC}"
+            ;;
+            --test)
+                VEILERTESTS=1
+                echo -e "${CYAN}Tests enabled.${NC}"
+            ;;
+        esac
+        shift
+    }
+}
 case $1 in
 	unveil)
 		case $2 in
 			$2)
-				echo "Checking if the package $2 exists..."
+                parse_options $@
+				echo -e "${WHITE}Checking if the package $2 exists...${NC}"
 				wget "$PKGREPO$2.tar.gz" &> /dev/null 
 				case $? in
 					8)
-						echo "ERROR: Package not found!"
+						echo -e "${RED}ERROR: Package not found!${NC}"
 					;;
 					0)
-					echo "Package found!"
-					echo "Installing $2 in"
+					echo -e "${GREEN}Package found!${NC}"
+					echo -e "${GREEN}Installing $2 in${NC}"
 					for i in 1 2 3 4 5 ; do
-						echo "${i}..."
-						sleep 1
+                        printf "${WHITE}%d${NC}" "$i"
+						for j in 1 2 3; do
+                            sleep 0.1
+                            printf "."
+                        done
 					done
-					wget $PKGREPO/$2.tar.gz
-					tar xf $2.tar.gz
+                    printf "\n"
+                    if [ $VEILERQUIET -eq 1 ]; then
+                        echo -e "${BLUE}Downloading the build tarball...${NC}"
+                        wget $PKGREPO/$2.tar.gz 2&> /dev/null
+                        echo -e "${BLUE}Extracting the build tarball...${NC}"
+                        tar xvf $2.tar.gz
+                    else
+					    wget $PKGREPO/$2.tar.gz
+					    tar xf $2.tar.gz
+                    fi
 					pushd $2
-					./LFSBUILD build
+					    source ./LFSBUILD build
 					popd 
-					rm -rf $2 $2.tar.gz*
 					;;
+                    *)
+                        echo -e "${RED}An unknown error occured. Manual intervention is required. Please use verbose mode and inspect the package manager script manually."
+                        exit 1
+                    ;;
 				esac
 			;;
 			*)
-				echo "You did not specify the package name!"
+				echo "${RED}You did not specify the package name!${NC}"
 			;;
 		esac
 	;;
 	veil)
 		case $2 in
 			$2)
-				echo "Checking if the package $2 exists..."
+				echo -e "${WHITE}Checking if the package $2 exists...${NC}"
 				wget "$PKGREPO$2.tar.gz" &> /dev/null
 				case $? in
 					8)
-						echo "Package does not exist!"
+						echo -e "${RED}Package does not exist!${NC}"
 					;;
 					0)
-						echo "Package found! Uninstalling in..."
-						for i in 1 2 3 4 5 ; do
-							echo "${i}..."
-							sleep 1
-						done
-						wget $PKGREPO/$2.tar.gz
-						tar xf $2.tar.gz
+					    for i in 1 2 3 4 5 ; do
+                            printf "%d" "$i"
+					        for j in 1 2 3; do
+                                sleep 0.1
+                                printf "."
+                            done
+					    done
+                        printf "\n"
+                        if [ "$VEILERQUIET" -eq 1 ]; then
+						    wget $PKGREPO/$2.tar.gz 2&> /dev/null
+						    tar xf $2.tar.gz
+                        fi
 						pushd $2
-						./LFSBUILD uninstall
+						    source ./LFSBUILD uninstall
 						popd
-						rm -rf $2 $2.tar.gz*
 						;;
+                    *)
+                        echo -e "${RED}An unknown error has been encountered. Manual intervention is required."
+                        exit 1
 				esac
 			;;
 			*)
-				echo "Invalid option. Exiting."
+				echo -e "${RED}Invalid option. Exiting.${NC}"
 			;;
 		esac
 	;;
-	expand)
-		e
-	;;
 	strengthen)
-		e
+		
 	;;
 	help)
-		e
-	;;
-	*)
 		echo "$0 Usage: $0 <OPTIONS> <COMMAND>"
 		echo "$0 <OPTIONS> unveil|veil [PACKAGE]"
 		echo "$0 Options: --verbose: Displays verbose output
@@ -79,7 +148,20 @@ case $1 in
 		"
 		echo "$0 unveil: Installs a package from source."
 		echo "$0 veil  : Uninstalls a package installed on the system"
-		echo "$0 expand: Syncs the package repository so that it finds newer versions."
+		echo "$0 strengthen: Updates all packages installed on the system"
+		echo "$0 help: Displays this output"
+		
+	;;
+	*)
+		echo "$0 Usage: $0 <OPTIONS> <COMMAND>"
+		echo "$0 <OPTIONS> unveil|veil [PACKAGE]"
+		echo "$0 Options: --verbose: Displays verbose output
+			         --quiet  : Displays quiet output, not too detailed.
+				 --documentation: Enables documentation (this might need extra dependencies)
+				 --test   : Enables test harnesses
+		"
+		echo "$0 unveil: Installs a package from source."
+		echo "$0 veil  : Uninstalls a package installed on the system"
 		echo "$0 strengthen: Updates all packages installed on the system"
 		echo "$0 help: Displays this output"
 	;;
