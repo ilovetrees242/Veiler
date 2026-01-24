@@ -11,3 +11,8 @@ This was made for my use mostly, its still under development so some packages mi
 -> Make
 -> GCC
 -> Patch
+-> Binutils
+-> Glibc
+-> Gawk
+-> Grep
+-> Coreutils
