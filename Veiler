@@ -1,53 +1,55 @@
-#!/bin/sh
+#!/bin/bash
 PATH="$PATH:/etc/VeilerTools/usr/bin/"
 PKGREPO="https://ilovetrees242.github.io/DevHelp/Website/Packages/"
 VEILERTESTS=0
 VEILERQUIET=0
 VEILERDOC=0
 USETOOLS=0
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
-WHITE='\033[0;37m'
+YELLOW='\033[1;33m'
+ORANGE='\033[0;33m'
+WHITE='\033[1;37m'
+GRAY='\033[0;37m'
+DARKGRAY='\033[1;30m'
 NC='\033[0m'
-if [ $(id -u) != 0 ]; then
-    echo -e "${RED}You are not root! run as root with: sudo $0${NC}"
-    exit 1
-fi
-printf "${BLUE}Checking if required packages are installed on your computer${NC}"
-for i in 1 2 3; do
-    sleep 1
-    printf "${WHITE}.${NC}"
-done; printf "\n"
-for PACKAGE in wget awk gcc make patch grep tar readelf; do
-    $PACKAGE --version 2&> /dev/null 
-    if [ $? -eq 127 ]; then
-        echo -e "${YELLOW}$PACKAGE is not installed on your system! Veiler will use prebuilt binaries from the tool directory.${NC}"
-        PATH=$PATH:/usr/lib/Veiler/Tools/usr/bin/
-        USETOOLS=1
+
+PROCESSID=""
+CURRENTPWD=""
+
+package_check(){
+    if [ $(id -u) != 0 ]; then
+        echo -e "${RED}You are not root! run as root with: sudo $0${NC}"
+        exit 1
     fi
-done
-if [ $USETOOLS -eq 1 ]; then
-    echo -e "${CYAN}Use prebuilt tools enabled.${NC}"
-fi
+    while true; do
+        printf "\r${ORANGE}Checking if required packages are installed on your computer   ${NC}"; sleep 0.2
+        printf "\r${ORANGE}Checking if required packages are installed on your computer.  ${NC}"; sleep 0.2
+        printf "\r${ORANGE}Checking if required packages are installed on your computer.. ${NC}"; sleep 0.2
+        printf "\r${ORANGE}Checking if required packages are installed on your computer...${NC}"; sleep 0.2
+    done &
+    PROCESSID=$!
+    for PACKAGE in find wget awk gcc make patch grep tar readelf; do
+        $PACKAGE --version 1&> /dev/null 
+        if [ $? -eq 127 ]; then
+            echo -e "${YELLOW}$PACKAGE is not installed on your system! Veiler will use prebuilt binaries from the tool directory.${NC}"
+            PATH=$PATH:/usr/lib/Veiler/Tools/usr/bin/
+            USETOOLS=1
+        fi
+    done && kill $PROCESSID && printf "\n${YELLOW}Done!${NC}\n"     
+}
 parse_options(){
-    argscount=$#
-    for((i=0; i < $argscount; i++)){
+    for((i=0; i < $#; i++)){
         case $1 in
             --quiet)
                 VEILERQUIET=1
-                echo -e "${CYAN}Quiet mode enabled.${NC}"
+                echo -e "${GRAY}Quiet mode enabled.${NC}"
             ;;
             --documentation)
                 VEILERDOC=1
-                echo -e "${CYAN}Documentation enabled.${NC}"
+                echo -e "${GRAY}Documentation enabled.${NC}"
             ;;
             --test)
                 VEILERTESTS=1
-                echo -e "${CYAN}Tests enabled.${NC}"
+                echo -e "${GRAY}Tests enabled.${NC}"
             ;;
         esac
         shift
@@ -55,114 +57,183 @@ parse_options(){
 }
 case $1 in
 	unveil)
-		case $2 in
-			$2)
-                parse_options $@
-				echo -e "${WHITE}Checking if the package $2 exists...${NC}"
-				wget "$PKGREPO$2.tar.gz" &> /dev/null 
-				case $? in
-					8)
-						echo -e "${RED}ERROR: Package not found!${NC}"
-					;;
-					0)
-					echo -e "${GREEN}Package found!${NC}"
-					echo -e "${GREEN}Installing $2 in${NC}"
-					for i in 1 2 3 4 5 ; do
+        parse_options $@
+        package_check
+        if [ -z "$2" ]; then
+            echo -e "${YELLOW}Package name not specified!${NC}"
+            exit 1
+        fi
+        shift 
+        echo "Args: $@"
+        for(( i=0; i < $#; i++ )){
+            case $1 in 
+                --quiet)
+                    shift
+                ;;
+                --verbose)
+                    shift
+                ;;
+                --documentation)
+                    shift
+                ;;
+            esac
+            if [ $VEILERQUIET -ne 1 ]; then
+                echo -e "${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists...${NC}"
+                wget "$PKGREPO$1.tar.gz" 
+            else
+                while true; do
+                    echo -ne "\r${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists   ${NC}"; sleep 0.2; 
+                    echo -ne "\r${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists.  ${NC}"; sleep 0.2; 
+                    echo -ne "\r${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists.. ${NC}"; sleep 0.2; 
+                    echo -ne "\r${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists...${NC}"; sleep 0.2; 
+                done &
+                PROCESSID=$!
+	    	    wget "$PKGREPO$1.tar.gz" &> /dev/null && kill $PROCESSID && echo
+            fi
+	    	case $? in
+		    	8)
+			    	echo -e "${YELLOW}Package ${ORANGE}$1${YELLOW}not found!${NC}"
+                ;;
+			    0)  
+                    echo -e "\n${ORANGE}Package ${WHITE}$1${WHITE}found!${NC}"
+				    echo -e "${YELLOW}Installing ${WHITE}$1${YELLOW} in${NC}"
+				    for i in 1 2 3 4 5 ; do
                         printf "${WHITE}%d${NC}" "$i"
-						for j in 1 2 3; do
+					    for j in 1 2 3; do
                             sleep 0.1
-                            printf "."
+                            printf "${YELLOW}.${NC}"
                         done
-					done
-                    printf "\n"
+                        sleep 1
+				    done
+                    echo
                     if [ $VEILERQUIET -eq 1 ]; then
-                        echo -e "${BLUE}Downloading the build tarball...${NC}"
-                        wget $PKGREPO/$2.tar.gz 2&> /dev/null
-                        echo -e "${BLUE}Extracting the build tarball...${NC}"
-                        tar xvf $2.tar.gz
+                        while true; do
+                            echo -ne "\r${ORANGE}Extracting the build tarball   ${NC}"; sleep 0.2; 
+                            echo -ne "\r${ORANGE}Extracting the build tarball.  ${NC}"; sleep 0.2; 
+                            echo -ne "\r${ORANGE}Extracting the build tarball.. ${NC}"; sleep 0.2; 
+                            echo -ne "\r${ORANGE}Extracting the build tarball...${NC}"; sleep 0.2; 
+                        done &
+                        tar xf $1.tar.gz && kill $! && echo -e "\n${YELLOW}Successfully extracted $1.tar.gz;${NC}"; echo
                     else
-					    wget $PKGREPO/$2.tar.gz
-					    tar xf $2.tar.gz
+				        wget $PKGREPO/$1.tar.gz
+				        tar xvf $1.tar.gz
+                        if [ $? -ne 0 ]; then
+                            echo "${YELLOW}An error was encountered while extracting the build tarball.${NC}"
+                        fi
                     fi
-					pushd $2
-					    source ./LFSBUILD build
-					popd 
-					;;
+		    		pushd $1
+			    	    source ./LFSBUILD build
+				    popd 
+				;;
+                *)
+                    echo -e "${YELLOW}An unknown error occured. Manual intervention is required. Please use verbose mode and inspect the package manager script manually.${NC}"
+                    exit 1
+                ;;
+		    esac
+            shift
+        }
+    ;;
+	veil)
+        parse_options $@
+        package_check
+        if [ -z "$2" ]; then
+            echo -e "${YELLOW}Package name not specified!${NC}"
+            exit 1
+        fi
+        shift
+        for(( i=0; i < $#; i++ )){
+            case $1 in 
+                --quiet)
+                    shift
+                ;;
+                --verbose)
+                    shift
+                ;;
+                --documentation)
+                    shift
+                ;;
+            esac
+            if [ "$VEILERQUIET" -eq 1 ]; then
+                if [ $# -ge 2 ]; then
+                    echo "\033[s"
+                    while true; do
+                        echo -ne "\r${ORANGE}Checking if packages exist   ${NC}"; sleep 0.2
+                        echo -ne "\r${ORANGE}Checking if packages exist.  ${NC}"
+                        echo -ne "\r${ORANGE}Checking if packages exist.. ${NC}"
+                        echo -ne "\r${ORANGE}Checking if packages exist...${NC}"
+                    done &
+                    PROCESSID=$!
+                    wget "$PKGREPO$1.tar.gz" &> /dev/null
+                    if [ $? -eq 8 ]; then
+                        echo -e "${YELLOW}Package $1 not found!${NC}"
+                    elif [ $? -eq 0 ]; then
+                        echo -e "${WHITE}->${YELLOW}Package ${WHITE}$1${YELLOW} found${NC}"
+                    else
+                        echo -e "${YELLOW}An unknown error was encountered while checking if packages exist. Manual intervention required.${NC}"
+                    fi
+                else
+                    while true; do
+		                echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$2${ORANGE} exists   ${NC}"; sleep 0.2
+		                echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$2${ORANGE} exists.  ${NC}"; sleep 0.2
+		                echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$2${ORANGE} exists.. ${NC}"; sleep 0.2
+		                echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$2${ORANGE} exists...${NC}"; sleep 0.2
+                    done &
+                    PROCESSID=$!
+		            wget "$PKGREPO$1.tar.gz" &> /dev/null
+		            case $? in
+			        8)
+				        echo -e "${YELLOW}Package ${WHITE}$1${WHITE}does not exist!${NC}"
+		    	    ;;
+                    0)
+			            for i in 1 2 3 4 5 ; do
+                            printf "${WHITE}%d${NC}" "$i"
+			                for j in 1 2 3; do
+                                sleep 0.1
+                                printf "${YELLOW}.${NC}"
+                            done
+                            sleep 1
+			            done
+                        echo
+				        tar xf $1.tar.gz
+                        fi
+					    pushd $1
+					        source ./LFSBUILD uninstall
+					    popd
+				    ;;
                     *)
-                        echo -e "${RED}An unknown error occured. Manual intervention is required. Please use verbose mode and inspect the package manager script manually."
+                        echo -e "${YELLOW}An unknown error has been encountered. Manual intervention is required.${NC}"
                         exit 1
                     ;;
-				esac
-			;;
-			*)
-				echo "${RED}You did not specify the package name!${NC}"
-			;;
-		esac
-	;;
-	veil)
-		case $2 in
-			$2)
-				echo -e "${WHITE}Checking if the package $2 exists...${NC}"
-				wget "$PKGREPO$2.tar.gz" &> /dev/null
-				case $? in
-					8)
-						echo -e "${RED}Package does not exist!${NC}"
-					;;
-					0)
-					    for i in 1 2 3 4 5 ; do
-                            printf "%d" "$i"
-					        for j in 1 2 3; do
-                                sleep 0.1
-                                printf "."
-                            done
-					    done
-                        printf "\n"
-                        if [ "$VEILERQUIET" -eq 1 ]; then
-						    wget $PKGREPO/$2.tar.gz 2&> /dev/null
-						    tar xf $2.tar.gz
-                        fi
-						pushd $2
-						    source ./LFSBUILD uninstall
-						popd
-						;;
-                    *)
-                        echo -e "${RED}An unknown error has been encountered. Manual intervention is required."
-                        exit 1
-				esac
-			;;
-			*)
-				echo -e "${RED}Invalid option. Exiting.${NC}"
-			;;
-		esac
+		        esac
+                fi
+            else
+                  
+            fi
+        }
 	;;
 	strengthen)
 		
 	;;
 	help)
-		echo "$0 Usage: $0 <OPTIONS> <COMMAND>"
-		echo "$0 <OPTIONS> unveil|veil [PACKAGE]"
-		echo "$0 Options: --verbose: Displays verbose output
-			         --quiet  : Displays quiet output, not too detailed.
-				 --documentation: Enables documentation (this might install extra dependencies)
-				 --test   : Enables test harnesses
-		"
-		echo "$0 unveil: Installs a package from source."
-		echo "$0 veil  : Uninstalls a package installed on the system"
-		echo "$0 strengthen: Updates all packages installed on the system"
-		echo "$0 help: Displays this output"
+		echo -e "${WHITE}$0 Usage: $0 <OPTIONS> <COMMAND>${NC}"
+		echo -e "${WHITE}$0 unveil|veil <OPTIONS> [PACKAGE]${NC}"
+		echo -e "${WHITE}$0 $Options: ${DARKGRAY}--verbose${NC}: Displays verbose output
+      	             ${DARKGRAY}--quiet${NC}  : Displays quiet output, not too detailed.
+                     ${DARKGRAY}--documentation${NC}: Enables documentation (this might install extra dependencies)
+                     ${DARKGRAY}--test${NC}   : Enables test harnesses
+        " 
+		echo -e "${WHITE}$0 unveil: Installs a package from source.${NC}"
+		echo -e "${WHITE}$0 veil  : Uninstalls a package installed on the system${NC}"
+		echo -e "${WHITE}$0 strengthen: Updates all packages installed on the system${NC}"
+		echo -e "${WHITE}$0 help: Displays this output${NC}"
+        echo -e "${WHITE}$0 version: Display package manager version"
 		
 	;;
+    version)
+            
+    ;;
 	*)
-		echo "$0 Usage: $0 <OPTIONS> <COMMAND>"
-		echo "$0 <OPTIONS> unveil|veil [PACKAGE]"
-		echo "$0 Options: --verbose: Displays verbose output
-			         --quiet  : Displays quiet output, not too detailed.
-				 --documentation: Enables documentation (this might need extra dependencies)
-				 --test   : Enables test harnesses
-		"
-		echo "$0 unveil: Installs a package from source."
-		echo "$0 veil  : Uninstalls a package installed on the system"
-		echo "$0 strengthen: Updates all packages installed on the system"
-		echo "$0 help: Displays this output"
+        echo -e "${RED}Invalid action specified!${NC}"
+        $0 help
 	;;
 esac
