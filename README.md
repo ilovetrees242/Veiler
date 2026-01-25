@@ -7,12 +7,12 @@ This was made for my use mostly, its still under development so some packages mi
 
 # Packages needed by Veiler
 
--> Wget
--> Make
--> GCC
--> Patch
--> Binutils
--> Glibc
--> Gawk
--> Grep
--> Coreutils
+* Wget
+* Make
+* GCC
+* Patch
+* Binutils
+* Glibc
+* Gawk
+* Grep
+* Coreutils
