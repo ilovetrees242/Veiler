@@ -195,7 +195,7 @@ case $1 in
 			            done
                         echo
 				        tar xf $1.tar.gz
-                        fi
+                 
 					    pushd $1
 					        source ./LFSBUILD uninstall
 					    popd
@@ -207,7 +207,7 @@ case $1 in
 		        esac
                 fi
             else
-                  
+                  xx
             fi
         }
 	;;
@@ -217,11 +217,11 @@ case $1 in
 	help)
 		echo -e "${WHITE}$0 Usage: $0 <OPTIONS> <COMMAND>${NC}"
 		echo -e "${WHITE}$0 unveil|veil <OPTIONS> [PACKAGE]${NC}"
-		echo -e "${WHITE}$0 $Options: ${DARKGRAY}--verbose${NC}: Displays verbose output
-      	             ${DARKGRAY}--quiet${NC}  : Displays quiet output, not too detailed.
-                     ${DARKGRAY}--documentation${NC}: Enables documentation (this might install extra dependencies)
-                     ${DARKGRAY}--test${NC}   : Enables test harnesses
-        " 
+		echo -e "${WHITE}$0 Options:" 
+	   echo -e "${GRAY}--verbose${NC}${WHITE} : Displays verbose output"
+      	   echo -e "${GRAY}--quiet${NC}${WHITE} : Displays quiet output, not too detailed."
+	   echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)"
+	   echo -e "${GRAY}--test${NC}${WHITE}: Enables test harnesses" 
 		echo -e "${WHITE}$0 unveil: Installs a package from source.${NC}"
 		echo -e "${WHITE}$0 veil  : Uninstalls a package installed on the system${NC}"
 		echo -e "${WHITE}$0 strengthen: Updates all packages installed on the system${NC}"
