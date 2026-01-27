@@ -39,49 +39,49 @@ package_check(){
 clean(){
     rm -rf /var/cache/Veiler/*
 }
-parse_options(){
-    for(( i=1; i <= $#; i++ )){
-        case ${!i} in
-            --quiet)
-                if [ $VEILERQUIET -eq 0 ]; then
-                    set -- ${@:1:$((i-1))} ${@:$((i+1))}
-                    VEILERQUIET=1
-                    i=0
-                elif [ $VEILERQUIET -eq 1 ]; then
-                    echo -e "${Yellow}Quiet mode already enabled!${NC}"; exit 1
-                fi
-            ;;
-            --documentation)
-                if [ $VEILERDOC -eq 0 ]; 
-                    set -- ${@:1:$((i-1))} ${@:$((i+1))}
-                    VEILERDOC=1
-                    i=0
-                elif [ $VEILERDOC -eq 1 ]; then
-                    echo -e "${YELLOW}Documentation already enabled!${NC}"; exit 1
-                fi
-            ;;
-            --tests)
-                if [ $VEILERTESTS -eq 0 ]; then
-                    set -- ${@:1:$((i-1))} ${@:$((i+1))}
-                    VEILERTESTS=1
-                    i=0
-                elif [ $VEILERTESTS -eq 1 ]; then
-                    echo -e "${YELLOW}Tests are already enabled!${NC}"; exit 1
-                fi
-            ;;
-        esac
-    }
+verify_integrity() {
+    md5sum    
+}
+for(( i=1; i <= $#; i++ )){
+    case ${!i} in
+        --quiet)
+            if [ $VEILERQUIET -eq 0 ]; then
+                set -- ${@:1:$((i-1))} ${@:$((i+1))}
+                VEILERQUIET=1
+                i=0
+            elif [ $VEILERQUIET -eq 1 ]; then
+                echo -e "${Yellow}Quiet mode already enabled!${NC}"; exit 1
+            fi
+        ;;
+        --documentation)
+            if [ $VEILERDOC -eq 0 ]; then 
+                set -- ${@:1:$((i-1))} ${@:$((i+1))}
+                VEILERDOC=1
+                i=0
+            elif [ $VEILERDOC -eq 1 ]; then
+                echo -e "${YELLOW}Documentation already enabled!${NC}"; exit 1
+            fi
+        ;;
+        --tests)
+            if [ $VEILERTESTS -eq 0 ]; then
+                set -- ${@:1:$((i-1))} ${@:$((i+1))}
+                VEILERTESTS=1
+                i=0
+            elif [ $VEILERTESTS -eq 1 ]; then
+                echo -e "${YELLOW}Tests are already enabled!${NC}"; exit 1
+            fi
+        ;;
+    esac
 }
 case $1 in
 	unveil)
-        parse_options $@
         package_check
         if [ -z "$2" ]; then
             echo -e "${YELLOW}Package name not specified!${NC}"
             exit 1
         fi
         shift 
-        echo "Args: $@"
+        echo "From unveil Args: $@"
         if [ $VEILERQUIET -eq 0 ]; then
             if [ $# -ge 2 ]; then
                 VEILERARGS=$@
@@ -108,6 +108,7 @@ case $1 in
                 echo -e "${YELLOW}Changing directory to /var/cache/Veiler...${NC}"
                 PREVUSERPWD=$PWD
                 cd /var/cache/Veiler && clean
+                echo -e "${YELLOW}Current working directory: $PWD${NC}"; sleep 2
                 echo -e "${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists...${NC}"
                 wget "$PKGREPO$1.tar.gz" 
                 case $? in 
@@ -142,9 +143,12 @@ case $1 in
                 esac
             fi
         elif [ $VEILERQUIET -eq 1 ]; then
+            echo -e "${YELLOW}Changing directory to /var/cache/Veiler...${NC}"
+            PREVUSERPWD=$PWD
+            pushd /var/cache/Veiler &> && clean
             if [ $# -ge 2 ]; then
                 # TO DO: Add commands for fetching and building multiple packages
-                echo "$@"
+                echo "DEBUG : $@"
             else
                 while true; do
                     echo -ne "\r${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists   ${NC}"; sleep 0.2; 
@@ -182,9 +186,12 @@ case $1 in
                             echo "${YELLOW}An error was encountered while extracting the build tarball.${NC}"
                             exit 1
                         else
-		    		        pushd "$1"
-			    	            source ./LFSBUILD uninstall
-				            popd 
+		    		        pushd "$1" &> /dev/null
+			    	            source ./MOONBUILD build
+                                popd
+                                source ./MOONBUILD install
+				            popd &> /dev/null
+                            rm -rf "$1"; rm -f "$1.tar.gz"
                         fi
 				    ;;
                     *)
@@ -192,11 +199,11 @@ case $1 in
                         exit 1
                     ;;
 		        esac
+                popd
             fi
         fi
     ;;
 	veil)
-        parse_options $@
         package_check
         if [ -z "$2" ]; then
             echo -e "${YELLOW}Package name not specified!${NC}"
@@ -204,11 +211,6 @@ case $1 in
         fi
         shift
         for(( i=0; i < $#; i++ )){
-            case $1 in 
-                --quiet) shift ;;
-                --verbose) shift ;;
-                --documentation) shift ;;
-            esac
             if [ "$VEILERQUIET" -eq 1 ]; then
                 if [ $# -ge 2 ]; then
                     echo "\033[s"
@@ -259,7 +261,7 @@ case $1 in
                             echo -ne "\r${ORANGE}Extracting the build tarball...${NC}"; sleep 0.2
                         done &
                         PROCESSID=$!
-				        tar xf "$1.tar.gz" && kill $PROCESSID && echo -e "${YELLOW}->Successfully extracted $1.tar.gz${NC}"
+				        tar xf "$1.tar.gz" && kill $PROCESSID && echo -e "\n${YELLOW}->Successfully extracted $1.tar.gz${NC}"
                  
 					    pushd "$1"
 					        source ./MOONBUILD uninstall
@@ -277,7 +279,8 @@ case $1 in
         }
 	;;
 	strengthen)
-        parse_options $@
+        # TO DO: Later, add a feature to update packages installed on system if new version has been released and is greater than installed version
+        xx
 	;;
 	help)
 		echo -e "${WHITE}$0 Usage: $0 <OPTIONS> <COMMAND>${NC}"
