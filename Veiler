@@ -157,6 +157,7 @@ case $1 in
 	    	    wget "$PKGREPO$1.tar.gz" &> /dev/null
                 case $? in
 		    	    8)
+                        kill $PROCESSID
 			    	    echo -e "${YELLOW}Package ${ORANGE}$1${YELLOW}not found!${NC}"
                         exit 1
                     ;;
@@ -173,6 +174,7 @@ case $1 in
                             sleep 1
 				        done
                         echo
+                        trap 'echo -e "${ORANGE}Could not extract the build tarball.${NC}; kill $PROCESSID; exit 1;"' ERR
                         while true; do
                             echo -ne "\r${ORANGE}Extracting the build tarball   ${NC}"; sleep 0.2; 
                             echo -ne "\r${ORANGE}Extracting the build tarball.  ${NC}"; sleep 0.2; 
@@ -181,9 +183,9 @@ case $1 in
                         done &
                         PROCESSID="$!"
                         tar xf $1.tar.gz 
-                        trap 'echo -e "${ORANGE}Could not extract the build tarball.${NC}; kill $PROCESSID; exit 1;"' ERR
                         kill $PROCESSID; echo -e "\n${WHITE}Done!${NC}"
 		    		    pushd "$1" &> /dev/null
+                            source ./MOONBUILD chkdeps
 			    	        source ./MOONBUILD build
                             source ./MOONBUILD install
 			            popd &> /dev/null
