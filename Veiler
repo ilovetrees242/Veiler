@@ -12,7 +12,6 @@ DARKGRAY='\033[1;30m'
 NC='\033[0m'
 
 PROCESSID=""
-PREVUSERPWD=""
 VEILERARGS=""
 
 package_check(){
@@ -28,7 +27,7 @@ package_check(){
     done &
     PROCESSID=$!
     for PACKAGE in find bash wget awk gcc make patch grep tar readelf; do
-        $PACKAGE --version 1&> /dev/null 
+        $PACKAGE --version &> /dev/null 
         if [ $? -eq 127 ]; then
             echo -e "${YELLOW}$PACKAGE is not installed on your system! Veiler will use prebuilt binaries from the tool directory.${NC}"
             PATH=$PATH:/usr/lib/Veiler/Tools/usr/bin/
@@ -37,10 +36,7 @@ package_check(){
     done && kill $PROCESSID && printf "\n${YELLOW}Done!${NC}\n"     
 }
 clean(){
-    rm -rf /var/cache/Veiler/*
-}
-verify_integrity() {
-    md5sum    
+    rm -rvf /var/cache/Veiler/*
 }
 for(( i=1; i <= $#; i++ )){
     case ${!i} in
@@ -81,7 +77,7 @@ case $1 in
             exit 1
         fi
         shift 
-        echo "From unveil Args: $@"
+        echo -e "${WHITE}Packages to be installed: $@${NC}"
         if [ $VEILERQUIET -eq 0 ]; then
             if [ $# -ge 2 ]; then
                 VEILERARGS=$@
@@ -106,9 +102,7 @@ case $1 in
                     # xxx
             else
                 echo -e "${YELLOW}Changing directory to /var/cache/Veiler...${NC}"
-                PREVUSERPWD=$PWD
-                cd /var/cache/Veiler && clean
-                echo -e "${YELLOW}Current working directory: $PWD${NC}"; sleep 2
+                pushd /var/cache/Veiler && clean
                 echo -e "${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists...${NC}"
                 wget "$PKGREPO$1.tar.gz" 
                 case $? in 
@@ -131,21 +125,24 @@ case $1 in
                         echo -e "${YELLOW}Extracting the build tarball...${NC}"
                         tar xvf $1.tar.gz
                         pushd $1
-                            source ./MOONBUILD build && source ./MOONBUILD install
+                            source ./MOONBUILD chkdeps
+                            source ./MOONBUILD build
+                            trap 'echo -e "${YELLOW}An error was encountered while building $1. Not installing $1${NC}"; exit 1' ERR
+                            source ./MOONBUILD install
+                            trap - ERR
                         popd
-                        cd $PREVUSERPWD
                     ;;
                     *)
                         echo -e "${YELLOW}An unknown error was encountered while downloading the build tarball.${NC}"
-                        cd $PREVUSERPWD
+                        popd
                         exit 1
                     ;;
                 esac
+                popd
             fi
         elif [ $VEILERQUIET -eq 1 ]; then
             echo -e "${YELLOW}Changing directory to /var/cache/Veiler...${NC}"
-            PREVUSERPWD=$PWD
-            pushd /var/cache/Veiler &> && clean
+            pushd /var/cache/Veiler &> /dev/null && clean &> /dev/null
             if [ $# -ge 2 ]; then
                 # TO DO: Add commands for fetching and building multiple packages
                 echo "DEBUG : $@"
@@ -157,13 +154,14 @@ case $1 in
                     echo -ne "\r${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists...${NC}"; sleep 0.2; 
                 done &
                 PROCESSID=$!
-	    	    wget "$PKGREPO$1.tar.gz" &> /dev/null && kill $PROCESSID 
+	    	    wget "$PKGREPO$1.tar.gz" &> /dev/null
                 case $? in
 		    	    8)
 			    	    echo -e "${YELLOW}Package ${ORANGE}$1${YELLOW}not found!${NC}"
                         exit 1
                     ;;
 			        0)  
+                        kill $PROCESSID
                         echo -e "\n${ORANGE}Package ${WHITE}$1${WHITE} found!${NC}"
 				        echo -e "${YELLOW}Installing ${WHITE}$1${YELLOW} in${NC}"
 				        for i in 1 2 3 4 5 ; do
@@ -181,18 +179,15 @@ case $1 in
                             echo -ne "\r${ORANGE}Extracting the build tarball.. ${NC}"; sleep 0.2; 
                             echo -ne "\r${ORANGE}Extracting the build tarball...${NC}"; sleep 0.2; 
                         done &
-                        tar xf $1.tar.gz && kill $! && echo -e "\n${YELLOW}->Successfully extracted $1.tar.gz;${NC}"; echo
-                        if [ $? -ne 0 ]; then
-                            echo "${YELLOW}An error was encountered while extracting the build tarball.${NC}"
-                            exit 1
-                        else
-		    		        pushd "$1" &> /dev/null
-			    	            source ./MOONBUILD build
-                                popd
-                                source ./MOONBUILD install
-				            popd &> /dev/null
-                            rm -rf "$1"; rm -f "$1.tar.gz"
-                        fi
+                        PROCESSID="$!"
+                        tar xf $1.tar.gz 
+                        trap 'echo -e "${ORANGE}Could not extract the build tarball.${NC}; kill $PROCESSID; exit 1;"' ERR
+                        kill $PROCESSID; echo -e "\n${WHITE}Done!${NC}"
+		    		    pushd "$1" &> /dev/null
+			    	        source ./MOONBUILD build
+                            source ./MOONBUILD install
+			            popd &> /dev/null
+                        rm -rf "$1"; rm -f "$1.tar.gz" "$1.tar.gz.*"
 				    ;;
                     *)
                         echo -e "${YELLOW}An unknown error occured. Manual intervention is required. Please use verbose mode and inspect the package manager script manually.${NC}"
@@ -210,73 +205,110 @@ case $1 in
             exit 1
         fi
         shift
-        for(( i=0; i < $#; i++ )){
-            if [ "$VEILERQUIET" -eq 1 ]; then
-                if [ $# -ge 2 ]; then
-                    echo "\033[s"
-                    while true; do
-                        echo -ne "\r${ORANGE}Checking if packages exist   ${NC}"; sleep 0.2; echo "\033[u"
-                        echo -ne "\r${ORANGE}Checking if packages exist.  ${NC}"; sleep 0.2; echo "\033[u"
-                        echo -ne "\r${ORANGE}Checking if packages exist.. ${NC}"; sleep 0.2; echo "\033[u"
-                        echo -ne "\r${ORANGE}Checking if packages exist...${NC}"; sleep 0.2; echo "\033[u"
-                    done &
-                    PROCESSID=$!
-                    wget "$PKGREPO$1.tar.gz" &> /dev/null 
-                    if [ $? -eq 8 ]; then
-                        echo -e "${YELLOW}Package $1 not found!${NC}"
-                    elif [ $? -eq 0 ]; then
-                        echo -e "${WHITE}->${YELLOW}Package ${WHITE}$1${YELLOW} found${NC}"
-                    else
-                        echo -e "${YELLOW}An unknown error was encountered while checking if packages exist. Manual intervention required.${NC}"
-                    fi
+        if [ "$VEILERQUIET" -eq 1 ]; then
+            echo -e "${YELLOW}Changing directory to /var/cache/Veiler...${NC}"
+            pushd /var/cache/Veiler &> /dev/null && clean &> /dev/null
+            if [ $# -ge 2 ]; then
+                echo "\033[s"
+                while true; do
+                    echo -ne "\r${ORANGE}Checking if packages exist   ${NC}"; sleep 0.2; echo "\033[u"
+                    echo -ne "\r${ORANGE}Checking if packages exist.  ${NC}"; sleep 0.2; echo "\033[u"
+                    echo -ne "\r${ORANGE}Checking if packages exist.. ${NC}"; sleep 0.2; echo "\033[u"
+                    echo -ne "\r${ORANGE}Checking if packages exist...${NC}"; sleep 0.2; echo "\033[u"
+                done &
+                PROCESSID=$!
+                wget "$PKGREPO$1.tar.gz" &> /dev/null 
+                if [ $? -eq 8 ]; then
+                    echo -e "${YELLOW}Package $1 not found!${NC}"
+                elif [ $? -eq 0 ]; then
+                    echo -e "${WHITE}->${YELLOW}Package ${WHITE}$1${YELLOW} found${NC}"
                 else
-                    while true; do
-		                echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists   ${NC}"; sleep 0.2
-		                echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists.  ${NC}"; sleep 0.2
-		                echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists.. ${NC}"; sleep 0.2
-		                echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists...${NC}"; sleep 0.2
-                    done &
-                    PROCESSID=$!
-		            wget "$PKGREPO$1.tar.gz" &> /dev/null && kill $PROCESSID && echo
-		            case $? in
-			        8)
+                    echo -e "${YELLOW}An unknown error was encountered while checking if packages exist. Manual intervention required.${NC}"
+                fi
+            else
+                while true; do
+		            echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists   ${NC}"; sleep 0.2
+		            echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists.  ${NC}"; sleep 0.2
+		            echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists.. ${NC}"; sleep 0.2
+		            echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists...${NC}"; sleep 0.2
+                done &
+                PROCESSID=$!
+		        wget "$PKGREPO$1.tar.gz" &> /dev/null && kill $PROCESSID && echo
+		        case $? in
+		            8)
 				        echo -e "${YELLOW}Package ${WHITE}$1${WHITE}does not exist!${NC}"
 		    	    ;;
                     0)
+                    echo -e "\n${ORANGE}Package ${WHITE}$1${WHITE} found!${NC}"
+			        echo -e "${YELLOW}Uninstalling ${WHITE}$1${YELLOW} in${NC}"
+			        for i in 1 2 3 4 5 ; do
+                        printf "${WHITE}%d${NC}" "$i"
+			            for j in 1 2 3; do
+                            sleep 0.1
+                            printf "${YELLOW}.${NC}"
+                        done
+                        sleep 1
+			        done
+                    echo
+                    while true; do
+                        echo -ne "\r${ORANGE}Extracting the build tarball   ${NC}"; sleep 0.2
+                        echo -ne "\r${ORANGE}Extracting the build tarball.  ${NC}"; sleep 0.2
+                        echo -ne "\r${ORANGE}Extracting the build tarball.. ${NC}"; sleep 0.2
+                        echo -ne "\r${ORANGE}Extracting the build tarball...${NC}"; sleep 0.2
+                    done &
+                    PROCESSID=$!
+                    tar xf "$1.tar.gz" && kill $PROCESSID && echo -e "\n${YELLOW}->Successfully extracted $1.tar.gz${NC}"
+					pushd "$1" &> /dev/null
+				        source ./MOONBUILD uninstall
+				    popd &> /dev/null
+			        ;;
+                    *)
+                        echo -e "${YELLOW}An unknown error has been encountered. Manual intervention is required.${NC}"
+                        popd &> /dev/null
+                        exit 1
+                    ;;
+		        esac
+            popd &> /dev/null
+            fi
+        else
+            echo -e "${YELLOW}Changing directory to /var/cache/Veiler..."; sleep 2
+            pushd /var/cache/Veiler && clean
+            if [ $# -ge 2 ]; then
+                # TO DO : Build commands for multiple packages
+                xx
+            else
+                echo -e "${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists...${NC}"; sleep 0.2
+                PROCESSID="$!"
+                wget $PKGREPO$1.tar.gz
+                case $? in 
+                    8)
+                        echo -e "${YELLOW}Package ${WHITE}$1${YELLOW} does not exist!${NC}"
+                        exit 1
+                    ;;                    
+                    0)
                         echo -e "\n${ORANGE}Package ${WHITE}$1${WHITE} found!${NC}"
-				        echo -e "${YELLOW}Uninstalling ${WHITE}$1${YELLOW} in${NC}"
-			            for i in 1 2 3 4 5 ; do
+    			        echo -e "${YELLOW}Uninstalling ${WHITE}$1${YELLOW} in${NC}"
+	    		        for i in 1 2 3 4 5 ; do
                             printf "${WHITE}%d${NC}" "$i"
 			                for j in 1 2 3; do
                                 sleep 0.1
                                 printf "${YELLOW}.${NC}"
                             done
-                            sleep 1
+                        sleep 1
 			            done
                         echo
-                        while true; do
-                            echo -ne "\r${ORANGE}Extracting the build tarball   ${NC}"; sleep 0.2
-                            echo -ne "\r${ORANGE}Extracting the build tarball.  ${NC}"; sleep 0.2
-                            echo -ne "\r${ORANGE}Extracting the build tarball.. ${NC}"; sleep 0.2
-                            echo -ne "\r${ORANGE}Extracting the build tarball...${NC}"; sleep 0.2
-                        done &
-                        PROCESSID=$!
-				        tar xf "$1.tar.gz" && kill $PROCESSID && echo -e "\n${YELLOW}->Successfully extracted $1.tar.gz${NC}"
-                 
-					    pushd "$1"
-					        source ./MOONBUILD uninstall
-					    popd
-				    ;;
-                    *)
-                        echo -e "${YELLOW}An unknown error has been encountered. Manual intervention is required.${NC}"
-                        exit 1
+                        printf "${YELLOW}Extracting the build tarball now...${NC}"
+                        tar xvf "$1.tar.gz"
+                        pushd "$1"
+                            source ./MOONBUILD uninstall
+                        popd
                     ;;
-		        esac
-                fi
-            else
-                  xx
+                    *)
+                        echo -e "${ORANGE}An unknown error was encountered while downloading the build tarball.${NC}"
+                        exit 1
+                esac
             fi
-        }
+         fi
 	;;
 	strengthen)
         # TO DO: Later, add a feature to update packages installed on system if new version has been released and is greater than installed version
@@ -301,7 +333,7 @@ case $1 in
             echo -e "Veiler development version. V"
     ;;
 	*)
-        echo -e "${RED}Invalid action specified!${NC}"
+        echo -e "${WHITE}Invalid action ${YELLOW}$1${WHITE} specified!${NC}"
         $0 help
 	;;
 esac
