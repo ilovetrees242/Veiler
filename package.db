@@ -1,0 +1,6 @@
+// name installed version
+bash no 0
+glibc no 0
+readline no 0
+ncurses no 0
+neofetch no 0
