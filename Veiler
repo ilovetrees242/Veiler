@@ -4,6 +4,7 @@ PKGREPO="https://ilovetrees242.github.io/DevHelp/Website/Packages/"
 VEILERTESTS=0
 VEILERQUIET=0
 VEILERDOC=0
+VEILERASK=0
 YELLOW='\033[1;33m'
 ORANGE='\033[0;33m'
 WHITE='\033[1;37m'
@@ -16,7 +17,7 @@ VEILERARGS=""
 
 package_check(){
     if [ $(id -u) != 0 ]; then
-        echo -e "${RED}You are not root! run as root with: sudo $0${NC}"
+        echo -e "${ORANGE}You are not root! run as root with: ${WHITE}sudo ${YELLOW}$0${NC}"
         exit 1
     fi
     while true; do
@@ -36,7 +37,9 @@ package_check(){
     done && kill $PROCESSID && printf "\n${YELLOW}Done!${NC}\n"     
 }
 clean(){
-    rm -rvf /var/cache/Veiler/*
+    for directory in $(find /var/cache/Veiler/ -type d | sed '1d'); do
+        rm -rfv "$i"
+    done
 }
 uninstalldb(){
     LINENUMBER="$(cat -n /var/db/Veiler/package.db | grep $1 | awk '{print $1}')"
@@ -75,6 +78,14 @@ for(( i=1; i <= $#; i++ )){
                 echo -e "${YELLOW}Tests are already enabled!${NC}"; exit 1
             fi
         ;;
+        --ask)
+            if [ $VEILERASK -eq 0 ]; then
+                set -- ${@:1:$((i-1))} ${@:$((i+1))}
+                VEILERASK=1
+                i=0
+            elif [ $VEILERASK -eq 0 ]; then
+                echo -e "${YELLOW}Confirmation prompts are already enabled!${NC}"; exit 1
+            fi
     esac
 }
 case $1 in
@@ -95,7 +106,7 @@ case $1 in
                     echo -e "${YELLOW}Checking if packages exist...${NC}"
                     wget $PKGREPO$1.tar.gz 
                     if [ $? -eq 0 ]; then
-                        echo -e "${YELLOW}->Package ${WHITE}$1${YELLOW} found${NC}"
+                        echo -e "${YELLOW}->Package ${WHITE}$1 ${YELLOW} found${NC}"
                     elif [ $? -eq 8 ]; then
                         echo -e "${YELLOW}->Package ${ORANGE}$1${YELLOW} not found!${NC}"
                         exit 1
@@ -111,15 +122,27 @@ case $1 in
                 echo -e "${YELLOW}Changing directory to /var/cache/Veiler...${NC}"
                 pushd /var/cache/Veiler && clean
                 echo -e "${ORANGE}Checking if package ${YELLOW}$1${ORANGE} exists...${NC}"
-                wget "$PKGREPO$1.tar.gz" 
+                if [ ! -f $1.tar.gz ]; then
+                    wget "$PKGREPO$1.tar.gz"   
+                fi
                 case $? in 
                     8)
-                        echo -e "${YELLOW}Package ${ORANGE}$1${YELLOW}not found!${NC}"
+                        echo -e "${YELLOW}Package ${ORANGE}$1${YELLOW} not found!${NC}"
                         exit 1
                     ;;
                     0)
-                        echo -e "\n${ORANGE}Package ${WHITE}$1${ORANGE}found!${NC}"
-				        echo -e "${YELLOW}Installing ${WHITE}$1${YELLOW} in${NC}"
+                        echo -e "\n${ORANGE}Package ${WHITE}$1${ORANGE} found!${NC}"
+                        if [ $VEILERASK -eq 1 ]; then
+                            echo -ne "${WHITE}Proceed with the installation?[y/n]: ";  
+                            read -n 1 
+                            if [ $REPLY == "n" ]; then
+                                echo -e "\n${YELLOW}Ok.${NC}"; exit 0
+                            fi
+                            if [[ $REPLY != "y" && $REPLY != "n" ]]; then
+                                echo -e "\n${YELLOW}Not a valid choice!${NC}"; exit 1
+                            fi
+                        fi
+				        echo -e "\n${YELLOW}Installing ${WHITE}$1${YELLOW} in${NC}"
 				        for i in 1 2 3 4 5 ; do
                             printf "${WHITE}%d${NC}" "$i"
 					        for j in 1 2 3; do
@@ -173,7 +196,17 @@ case $1 in
 			        0)  
                         kill $PROCESSID
                         echo -e "\n${ORANGE}Package ${WHITE}$1${WHITE} found!${NC}"
-				        echo -e "${YELLOW}Installing ${WHITE}$1${YELLOW} in${NC}"
+                        if [ $VEILERASK -eq 1 ]; then
+                            echo -ne "${WHITE}Proceed with the installation?[y/n]: ";  
+                            read -n 1 
+                            if [ $REPLY == "n" ]; then
+                                echo -e "\n${YELLOW}Ok.${NC}"; exit 0
+                            fi
+                            if [[ $REPLY != "y" && $REPLY != "n" ]]; then
+                                echo -e "\n${YELLOW}Not a valid choice!${NC}"; exit 1
+                            fi
+                        fi
+				        echo -e "\n${YELLOW}Installing ${WHITE}$1${YELLOW} in${NC}"
 				        for i in 1 2 3 4 5 ; do
                             printf "${WHITE}%d${NC}" "$i"
 					        for j in 1 2 3; do
@@ -192,16 +225,17 @@ case $1 in
                         done &
                         PROCESSID="$!"
                         tar xf $1.tar.gz 
-                        kill $PROCESSID; echo -e "\n${WHITE}Done!${NC}"
+                        if [ $? -ne 0 ]; then echo -e "${ORANGE}An error was encountered while extracting the build tarball${NC}"; exit 1; kill $PROCESSID; fi
+                        kill $PROCESSID; echo -e "\n${YELLOW}Successfully extracted the build tarball!${NC}"
 		    		    pushd "$1" &> /dev/null
                             source ./MOONBUILD chkdeps
 			    	        source ./MOONBUILD build
                             source ./MOONBUILD install
                             installdb $1
                             VERLINE="$(cat -n /var/db/Veiler/package.db | grep $1 | awk '{print $1}')"
-                            sed -i "${VERLINE} s@0@${MOONPKGVERSION}@" /var/db/Veiler/package.db
+                            sed -i "${VERLINE} s@$(cat /var/db/Veiler/package.db | grep $1 | awk '{print $3}')@$MOONPKGVERSION@" /var/db/Veiler/package.db
 			            popd &> /dev/null
-                        rm -rf "$1"; rm -f "$1.tar.gz" "$1.tar.gz.*"
+                        rm -rf "$1"
 				    ;;
                     *)
                         echo -e "${YELLOW}An unknown error occured. Manual intervention is required. Please use verbose mode and inspect the package manager script manually.${NC}"
@@ -259,6 +293,20 @@ case $1 in
                     if [ $(cat /var/db/Veiler/package.db | grep $1 | awk '{print $2}') == "no" ]; then
                         echo -e "${WHITE}The package ${YELLOW}$1${WHITE} is already uninstalled.${NC}"
                         exit 1
+                    else
+                        echo -e "${WHITE}Ok. The package ${YELLOW}$1${WHITE} is going to be uninstalled.${NC}"
+                        if [ $VEILERASK -eq 1 ]; then
+                            echo -ne "${WHITE}Proceed with the uninstallation?[y/n]${NC}"
+                            read -n 1
+                            if [ $REPLY == "n" ]; then
+                                echo -e "\n${YELLOW}Ok."
+                                exit 0
+                            fi
+                            if [[ $REPLY != "n" && $REPLY != "y" ]]; then
+                                echo -e "\n${YELLOW}Please enter a valid choice."
+                                exit 1
+                            fi
+                        fi
                     fi
 			        echo -e "${YELLOW}Uninstalling ${WHITE}$1${YELLOW} in${NC}"
 			        for i in 1 2 3 4 5 ; do
@@ -354,19 +402,20 @@ case $1 in
         fi
     ;;
 	help)
-		echo -e "${WHITE}$0 Usage: $0 <OPTIONS> <COMMAND>${NC}"
+		echo -e "${YELLOW}$0 Usage: $0 <OPTIONS> <COMMAND>${NC}"
 		echo -e "${WHITE}$0 unveil|veil <OPTIONS> [PACKAGE]${NC}"
 		echo -e "${WHITE}$0 Options:" 
-	   echo -e "${GRAY}--verbose${NC}${WHITE} : Displays verbose output"
-       echo -e "${GRAY}--quiet${NC}${WHITE} : Displays quiet output, not too detailed."
-	   echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)"
-	   echo -e "${GRAY}--test${NC}${WHITE}: Enables test harnesses" 
+	   echo -e "${GRAY}--verbose${NC}${WHITE} : Displays verbose output${NC}"
+       echo -e "${GRAY}--quiet${NC}${WHITE} : Displays quiet output, not too detailed.${NC}"
+	   echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)${NC}"
+	   echo -e "${GRAY}--test${NC}${WHITE}: Enables test harnesses${NC}" 
+       echo -e "${GRAY}--ask${NC}${WHITE}: Use confirmation prompts before performing actions related to the entire package${NC}"
 		echo -e "${WHITE}$0 unveil: Installs a package from source.${NC}"
 		echo -e "${WHITE}$0 veil  : Uninstalls a package installed on the system${NC}"
 		echo -e "${WHITE}$0 strengthen: Updates all packages installed on the system${NC}"
 		echo -e "${WHITE}$0 help: Displays this output${NC}"
-        echo -e "${WHITE}$0 version: Display package manager version"
-        echo -e "${WHITE}$0 info: Display information about a package"
+        echo -e "${WHITE}$0 version: Display package manager version${NC}"
+        echo -e "${WHITE}$0 info: Display information about a package${NC}"
 		
 	;;
     version)

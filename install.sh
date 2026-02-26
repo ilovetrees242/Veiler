@@ -7,4 +7,5 @@ install -v -m 660 -d /usr/lib/Veiler/Tools
 install -v -m 660 -d /var/db/Veiler/
 install -v -m 660 ./package.db /var/db/Veiler/
 install -v -m 660 -d /var/cache/Veiler
+install -v -m 660 veiler.conf /etc/
 cp -ra Tools/* /usr/lib/Veiler/Tools

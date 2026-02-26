@@ -1,6 +1,8 @@
-// name installed version
+// DO NOT MODIFY THIS FILE, IT CAN MAKE THE PACKAGE MANAGER UNSTABLE
+// -name- -installed- -version-
 bash no 0
 glibc no 0
 readline no 0
 ncurses no 0
 neofetch no 0
+which no 0

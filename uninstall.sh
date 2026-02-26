@@ -4,6 +4,7 @@ else
     rm -vf /usr/bin/Veiler
     rm -rvf /usr/lib/Veiler
     rm -rfv /var/cache/Veiler /var/db/Veiler
+    rm -f /etc/veiler.conf  
     echo -e "\033[0;33mSucessfuly uninstalled veiler."
 fi
 
