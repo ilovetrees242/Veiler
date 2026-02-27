@@ -14,19 +14,27 @@ NC='\033[0m'
 
 PROCESSID=""
 VEILERARGS=""
-
+source /etc/veiler.conf
+play_animation(){
+    while true; do
+        printf "\r$1${WHITE}   ${NC}"; sleep 0.2
+        printf "\r$1${WHITE}.  ${NC}"; sleep 0.2
+        printf "\r$1${WHITE}.. ${NC}"; sleep 0.2
+        printf "\r$1${WHITE}...${NC}"; sleep 0.2
+    done &
+    PROCESSID=$!
+}
+stop_animation(){
+    if [ -n "$PROCESSID" ]; then kill $PROCESSID; fi
+    echo
+}
+trap 'stop_animation' INT TERM 
 package_check(){
     if [ $(id -u) != 0 ]; then
         echo -e "${ORANGE}You are not root! run as root with: ${WHITE}sudo ${YELLOW}$0${NC}"
         exit 1
     fi
-    while true; do
-        printf "\r${ORANGE}Checking if required packages are installed on your computer   ${NC}"; sleep 0.2
-        printf "\r${ORANGE}Checking if required packages are installed on your computer.  ${NC}"; sleep 0.2
-        printf "\r${ORANGE}Checking if required packages are installed on your computer.. ${NC}"; sleep 0.2
-        printf "\r${ORANGE}Checking if required packages are installed on your computer...${NC}"; sleep 0.2
-    done &
-    PROCESSID=$!
+        play_animation "\r${ORANGE}Checking if required packages are installed on your computer${NC}"
     for PACKAGE in find bash wget awk gcc make patch grep tar readelf; do
         $PACKAGE --version &> /dev/null 
         if [ $? -eq 127 ]; then
@@ -34,7 +42,10 @@ package_check(){
             PATH=$PATH:/usr/lib/Veiler/Tools/usr/bin/
         fi
         sleep 0.1
-    done && kill $PROCESSID && printf "\n${YELLOW}Done!${NC}\n"     
+    done
+    stop_animation
+    printf "${YELLOW}->Done!${NC}\n"     
+
 }
 clean(){
     for directory in $(find /var/cache/Veiler/ -type d | sed '1d'); do
@@ -402,9 +413,9 @@ case $1 in
         fi
     ;;
 	help)
-		echo -e "${YELLOW}$0 Usage: $0 <OPTIONS> <COMMAND>${NC}"
+        echo -e "${YELLOW}$0 Usage: $0 <COMMAND> <OPTIONS> ${NC}"
 		echo -e "${WHITE}$0 unveil|veil <OPTIONS> [PACKAGE]${NC}"
-		echo -e "${WHITE}$0 Options:" 
+		echo -e "${WHITE}$0 Options:${NC}" 
 	   echo -e "${GRAY}--verbose${NC}${WHITE} : Displays verbose output${NC}"
        echo -e "${GRAY}--quiet${NC}${WHITE} : Displays quiet output, not too detailed.${NC}"
 	   echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)${NC}"
