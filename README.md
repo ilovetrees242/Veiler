@@ -9,13 +9,8 @@ This was made for my use mostly, its still under development so some packages mi
 
 * Wget
 * Make
-* GCC
-* Patch
-* Binutils
-* Glibc
-* Gawk
-* Grep
-* Coreutils
-* Findutils
+* Sed
+* Patch 
+
 > **NOTE: **
 > The packages mentioned above are shipped along with the package manager incase you dont have them installed. The package manager will check for these packages on your system and use the prebuilt binaries incase it doesnt find any one of the packages mentioned above.
