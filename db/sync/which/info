@@ -4,7 +4,5 @@ MOONPKGVERSION="2.23"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
 SRC="https://ftp.gnu.org/gnu/which"
 DESC="The which utility is a program which is used to locate programs on a users PATH enviroment variable."
-INSTALLED="no"
 SIZE="10240"
 REQDSKSPC="6434"
-DEPENDS=("bash" "glibc")
