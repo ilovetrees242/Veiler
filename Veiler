@@ -111,7 +111,7 @@ for(( i=1; i <= $#; i++ )){
                 VEILERASK=1
                 i=0
             elif [ $VEILERASK -eq 1 ]; then
-                echo -e "${ORANGE}Error: ${YELLOW}Confirmation prompts are already enabled!${NC}"; exit 1
+                echo -e "${ORANGE}Error: ${WHITE}Confirmation prompts are already enabled!${NC}"; exit 1
             fi
     esac
 }
@@ -412,7 +412,7 @@ case $1 in
 		
 	;;
     version)
-            echo -e "Veiler development version. v0.0.1-r1"
+            echo -e "Veiler development version. v0.0.1-r2"
     ;;
     sync)
     ;;
