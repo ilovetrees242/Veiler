@@ -456,15 +456,16 @@ case $1 in
 		
 	;;
     version)
-            echo -e "Veiler development version. v0.0.1-r2"
+            echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it.${NC}"
+            echo -e "${WHITE}Veiler development version. ${GRAY}v0.0.1-r3${NC}"
     ;;
     sync)
     ;;
 	*)
         if [ -z $1 ]; 
-            then echo -e "${WHITE}No action specified!${NC}"; 
+            then echo -e "${ORANGE}Error: ${WHITE}No action specified!${NC}"; 
         else
-            echo -e "${WHITE}Invalid action ${YELLOW}$1${WHITE} specified!${NC}"
+            echo -e "${ORANGE}Error: ${WHITE}Invalid action ${YELLOW}$1${WHITE} specified!${NC}"
         fi
         $0 help
 	;;
