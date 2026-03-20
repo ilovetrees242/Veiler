@@ -16,3 +16,5 @@ This was made for my use mostly, its still under development so some packages mi
 
 > **NOTE: **
 > The packages mentioned above are shipped along with the package manager incase you dont have them installed. The package manager will check for these packages on your system and use the prebuilt binaries incase it doesnt find any one of the packages mentioned above.
+# Documentation
+Information related to configuration, installation or usage can be found at https://ilovetrees242.github.io/DevHelp/Website/Veiler.html
