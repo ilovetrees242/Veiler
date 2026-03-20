@@ -44,7 +44,7 @@ second_animation(){
     PROCESSID=$!
 }
 stop_animation(){
-    if [ -n "$PROCESSID" ]; then kill $PROCESSID; echo; fi
+    if [ -n "$PROCESSID" ]; then kill "$PROCESSID" &> /dev/null; echo; fi
 }
 package_check(){
     if [ $(id -u) != 0 ]; then
@@ -66,18 +66,6 @@ clean(){
     for directory in $(find /var/cache/Veiler/ -type d | sed '1d'); do
         rm -rfv "${directory}"
     done
-}
-uninstalldb(){
-    LINENUMBER="$(cat -n /var/db/Veiler/package.db | grep -w "$1" | awk '{print $1}')"
-    sed -i "${LINENUMBER} s@yes@no@" /var/db/Veiler/package.db
-}
-installdb(){
-    LINENUMBER="$(cat -n /var/db/Veiler/package.db | grep -w "$1" | awk '{print $1}')"
-    sed -i "${LINENUMBER} s@no@yes@" /var/db/Veiler/package.db
-}
-changever(){
-    LINENUMBER="$(cat -n /var/db/Veiler/package.db | grep -w "$1" | awk '{print $1}')"
-    sed -i "${LINENUMBER} s@$(grep -w "$1" /var/db/Veiler/package.db | awk '{print $3}')@${MOONPKGVERSION}@" /var/db/Veiler/package.db 
 }
 for(( i=1; i <= $#; i++ )){
     case ${!i} in
@@ -230,34 +218,45 @@ case $1 in
                 PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
                 if [ ! -f "build-"$PKGNAME"-"$PKGVERSION".tar.gz" ]; then
                     wget "$PKGREPO/build-"$PKGNAME"-"$PKGVERSION".tar.gz"
+                    if [ $? -ne 0 ]; then
+                        echo -e "${ORANGE}Error: ${WHITE}Could not download the package ${YELLOW}$PKGNAME${WHITE}!${NC}"
+                        echo -e "${YELLOW}Tip: ${WHITE}Maybe try running $0 sync?${NC}"
+                        exit 1
+                    fi
                 fi
             done
-            exit 0
-            echo -e "${YELLOW}Extracting the package build tarballs...${NC}"
+            echo -e "${YELLOW}Important: ${WHITE}Extracting the package build tarballs...${NC}"
             for Package in $@; do
-                tar xvf "$Package.tar.gz"
+                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                tar xvf "build-"$Package"-"$PKGVERSION".tar.gz"
             done
-            echo -e "${YELLOW}Checking if the package(s) are already installed...${NC}"
+            echo -ne "${YELLOW}Packages to be installed: ${NC}"
             for Package in $@; do
-                pushd $Package
-                    touch compare.txt
-                    VERSION="$(./MOONBUILD version)" 
-                    INSTVERSION="$(grep -w "$Package" /var/db/Veiler/package.db | awk '{print $3}')"
-                    echo "$VERSION" >> compare.txt
-                    echo "$INSTVERSION" >> compare.txt
-                    NEWVER=$(sort -Vr compare.txt | head -n1 | tail -n1)
-                    if [ "$NEWVER" != "$INSTVERSION" ]; then
-                        echo -e "${YELLOW}${WHITE}$Package(${GRAY}$VERSION)${YELLOW} will be upgraded to ${WHITE}$Package(${GRAY}$NEWVER)${NC}"
-                    elif [ "$NEWVER" == "$INSTVERSION" ]; then
-                        echo -e "${ORANGE}${WHITE}$Package${ORANGE} is already installed ${GRAY}(version $VERSION)${ORANGE}, not installing again.${NC}"
-                        shift
-                    fi
-                    rm -f compare.txt
-                popd
+                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
+                PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                if [ "$PKGVERSION" != "$LOCALPKGVERSION" ]; then
+                    echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "$PKGNAME" ${GRAY}("$PKGVERSION")${NC}   "
+                else
+                    echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${NC}  "
+                fi
+                echo; echo
+                if [ "$VEILERASK" -eq 1 ]; then
+                    echo -ne "${YELLOW}||| ${WHITE}Proceed with the installation?[y/n]: "
+                    read -n 1
+                fi
+                if [ "$REPLY" == "y" ]; then
+                    echo
+                    true
+                else
+                    echo
+                    exit 0
+                fi
             done
-            if [ $# -ne 0 ]; then echo -e "${YELLOW}Installing the package(s)...${NC}"; fi
             set -e
             for Package in $@; do
+                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                Package="build-"$Package"-"$PKGVERSION""
                 pushd $Package
                     echo -e "${YELLOW}Checking for depedencies...${NC}"
                     source ./MOONBUILD chkdeps
@@ -265,8 +264,6 @@ case $1 in
                     source ./MOONBUILD build
                     trap "${ORANGE}Failed to install ${WHITE}$Package.${NC}" ERR
                     source ./MOONBUILD install
-                    installdb $Package
-                    changever $Package
                 popd
             done
             set +e
