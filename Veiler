@@ -454,7 +454,7 @@ case $1 in
 	;;
     version)
             echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it.${NC}"
-            echo -e "${WHITE}Veiler development version. ${GRAY}v0.0.1-r3${NC}"
+            echo -e "${WHITE}Veiler pre-release version. ${GRAY}v0.0.1-alpha${NC}"
     ;;
     sync)
     ;;
