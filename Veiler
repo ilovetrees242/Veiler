@@ -21,8 +21,8 @@ DEPS=""
 DEPCNTR=0
 DEPBUFCNTR=0
 
-trap 'stop_animation' TERM 
-trap 'echo -e "\n${YELLOW}Interrupted${NC}"; stop_animation; exit 1' INT
+trap 'veiler_stop_animation' TERM 
+trap 'echo -e "\n${YELLOW}Interrupted${NC}"; veiler_stop_animation; exit 1' INT
 source /etc/veiler.conf 
 
 play_animation(){
@@ -43,7 +43,7 @@ second_animation(){
     done &
     PROCESSID=$!
 }
-stop_animation(){
+veiler_stop_animation(){
     if [ -n "$PROCESSID" ]; then kill "$PROCESSID" &> /dev/null; echo; fi
 }
 package_check(){
@@ -60,7 +60,7 @@ package_check(){
         fi
         sleep 0.1
     done
-    stop_animation
+    veiler_stop_animation
 }
 clean(){
     for directory in $(find /var/cache/Veiler/ -type d | sed '1d'); do
@@ -104,6 +104,15 @@ for(( i=1; i <= $#; i++ )){
             elif [ $VEILERASK -eq 1 ]; then
                 echo -e "${ORANGE}Error: ${WHITE}Confirmation prompts are already enabled!${NC}"; exit 1
             fi
+        ;;
+        *)
+            OPTBUFFER=${!i}
+            OPTBUFFER="$(echo $OPTBUFFER | grep "\--")"
+            if [ -n "$OPTBUFFER" ]; then
+                echo -e "${ORANGE}Error: Unknown option ${GRAY}$OPTBUFFER${NC}"
+                exit 1
+            fi
+        ;;
     esac
 }
 case $1 in
@@ -124,9 +133,9 @@ case $1 in
         play_animation "${YELLOW}Activity: ${WHITE}Checking if packages exist${NC}"
         sleep 0.1
         for PACKAGE in "$@"; do
-            if [ ! -d "/var/db/Veiler/sync/$PACKAGE" ]; then echo -e "${ORANGE}Error: ${WHITE}The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database.${NC}"; stop_animation; exit 1; fi
+            if [ ! -d "/var/db/Veiler/sync/$PACKAGE" ]; then echo -e "${ORANGE}\nError: ${WHITE}The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database.${NC}"; veiler_stop_animation; exit 1; fi
         done
-        stop_animation
+        veiler_stop_animation
         second_animation "${YELLOW}Important: ${WHITE}Calculating dependencies${NC}"
         PKGCOUNT=0 
         for PACKAGE in "$@"; do
@@ -148,7 +157,7 @@ case $1 in
         # stage 2 : bash bash
         # Stage 3 : ncurses readline ncurses readline
         # Stage 4 : 
-        while [ ! -z $PACKAGEBUFFER ]; do
+        while [ ! -z "$PACKAGEBUFFER" ]; do
             for PACKAGE in ${PACKAGEBUFFER[@]}; do 
                 while read DEPENDENCY; do
                     if [ ! -d "/var/db/Veiler/local/$DEPENDENCY" ]; then 
@@ -170,7 +179,6 @@ case $1 in
             }
             DEPBUFCNTR=0
         done
-        # To do : Depedency resolver with DFS and toposort algorithm
         checkifexists(){
             for((i=0; i < ${#VICTIMPACKAGES[@]}; i++)){
                 if [ "${VICTIMPACKAGES[$i]}" == "$1" ]; then
@@ -207,7 +215,7 @@ case $1 in
         for((i=0; i < ${#BUFFER[@]}; i++)){
             PACKAGES[$i]=${BUFFER[$i]}
         }
-        stop_animation
+        veiler_stop_animation
         set -- ${PACKAGES[@]}
         if [ $VEILERQUIET -eq 0 ]; then
             echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
@@ -220,7 +228,7 @@ case $1 in
                     wget "$PKGREPO/build-"$PKGNAME"-"$PKGVERSION".tar.gz"
                     if [ $? -ne 0 ]; then
                         echo -e "${ORANGE}Error: ${WHITE}Could not download the package ${YELLOW}$PKGNAME${WHITE}!${NC}"
-                        echo -e "${YELLOW}Tip: ${WHITE}Maybe try running $0 sync?${NC}"
+                        echo -e "${YELLOW}Tip: ${WHITE}Maybe try running $0 ${GRAY}sync?${NC}"
                         exit 1
                     fi
                 fi
@@ -233,7 +241,9 @@ case $1 in
             echo -ne "${YELLOW}Packages to be installed: ${NC}"
             for Package in $@; do
                 PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
+                if [ -d /var/db/Veiler/local/"Package" ]; then
+                    LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
+                fi
                 PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
                 if [ "$PKGVERSION" != "$LOCALPKGVERSION" ]; then
                     echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "$PKGNAME" ${GRAY}("$PKGVERSION")${NC}   "
@@ -246,20 +256,29 @@ case $1 in
                     read -n 1
                 fi
                 if [ "$REPLY" == "y" ]; then
-                    echo
-                    true
+                    echo; true
                 else
-                    echo
-                    exit 0
+                    echo; exit 0
                 fi
             done
             set -e
             for Package in $@; do
+                echo -e "${YELLOW}Important: ${WHITE}Verifying downloaded packages integrity"
+                sha256sum --ignore-missing -c /var/db/Veiler/checksums.sha
+                echo -ne "${NC}"
+                if [ $? -eq 1 ]; then
+                    echo -e "${ORANGE}Error: ${WHITE}Could not verify package integrity for one or more packages!${NC}"
+                    echo -e "${YELLOW}Tip: ${WHITE}Possible causes: "
+                    echo -e "${WHITE}The maintainer forgot to update the checksums file${NC}"
+                    echo -e "${WHITE}The file failed to download properly${NC}"
+                    echo -e "${WHITE}The file was downloaded from an unknown source${NC}"
+                    exit 1
+                fi
+            done
+            for Package in $@; do
                 PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
                 Package="build-"$Package"-"$PKGVERSION""
                 pushd $Package
-                    echo -e "${YELLOW}Checking for depedencies...${NC}"
-                    source ./MOONBUILD chkdeps
                     trap "${ORANGE}Failed to build ${WHITE}$Package.${NC}" ERR
                     source ./MOONBUILD build
                     trap "${ORANGE}Failed to install ${WHITE}$Package.${NC}" ERR

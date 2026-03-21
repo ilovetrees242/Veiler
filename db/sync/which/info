@@ -6,3 +6,4 @@ SRC="https://ftp.gnu.org/gnu/which"
 DESC="The which utility is a program which is used to locate programs on a users PATH enviroment variable."
 SIZE="10240"
 REQDSKSPC="6434"
+CHECKSUM=
