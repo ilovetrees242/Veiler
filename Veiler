@@ -237,6 +237,9 @@ case $1 in
             for Package in $@; do
                 PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
                 tar xvf "build-"$Package"-"$PKGVERSION".tar.gz"
+                if [ $? -ne 0 ]; then
+                    echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${YELLOW}$Package${NC}"; exit 1
+                fi
             done
             echo -ne "${YELLOW}Packages to be installed: ${NC}"
             for Package in $@; do
@@ -288,7 +291,76 @@ case $1 in
             set +e
             popd
         else
-            echo 
+            echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
+            pushd /var/cache/Veiler && clean
+            echo -e "${YELLOW}Important: ${WHITE}Fetching package(s)...${NC}"
+            for Package in $@; do
+                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                if [ ! -f "build-"$PKGNAME"-"$PKGVERSION".tar.gz" ]; then
+                    wget -q --show-progress "$PKGREPO/build-"$PKGNAME"-"$PKGVERSION".tar.gz"
+                    if [ $? -ne 0 ]; then
+                        echo -e "${ORANGE}Error: ${WHITE}Could not download the package ${YELLOW}$PKGNAME${WHITE}!${NC}"
+                        echo -e "${YELLOW}Tip: ${WHITE}Maybe try running $0 ${GRAY}sync?${NC}"
+                        exit 1
+                    fi
+                fi
+            done
+            play_animation "${YELLOW}Important: ${WHITE}Extracting the package build tarballs...${NC}"
+            for Package in $@; do
+                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                tar xf "build-"$Package"-"$PKGVERSION".tar.gz"
+                if [ $? -ne 0 ]; then
+                    echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${YELLOW}$Package${NC}"; exit 1
+                fi
+            done
+            echo -ne "${YELLOW}Packages to be installed: ${NC}"
+            for Package in $@; do
+                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                if [ -d /var/db/Veiler/local/"Package" ]; then
+                    LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
+                fi
+                PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                if [ "$PKGVERSION" != "$LOCALPKGVERSION" ]; then
+                    echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "$PKGNAME" ${GRAY}("$PKGVERSION")${NC}   "
+                else
+                    echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${NC}  "
+                fi
+                echo; echo
+                if [ "$VEILERASK" -eq 1 ]; then
+                    echo -ne "${YELLOW}||| ${WHITE}Proceed with the installation?[y/n]: "
+                    read -n 1
+                fi
+                if [ "$REPLY" == "y" ]; then
+                    echo; true
+                else
+                    echo; exit 0
+                fi
+            done
+            set -e
+            for Package in $@; do
+                echo -e "${YELLOW}Important: ${WHITE}Verifying downloaded packages integrity"
+                sha256sum --ignore-missing -c /var/db/Veiler/checksums.sha
+                echo -ne "${NC}"
+                if [ $? -eq 1 ]; then
+                    echo -e "${ORANGE}Error: ${WHITE}Could not verify package integrity for one or more packages!${NC}"
+                    echo -e "${YELLOW}Tip: ${WHITE}Possible causes: "
+                    echo -e "${WHITE}The maintainer forgot to update the checksums file${NC}"
+                    echo -e "${WHITE}The file failed to download properly${NC}"
+                    echo -e "${WHITE}The file was downloaded from an unknown source${NC}"
+                    exit 1
+                fi
+            done
+            for Package in $@; do
+                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
+                Package="build-"$Package"-"$PKGVERSION""
+                pushd "$Package"
+                    source ./MOONBUILD build
+                    source ./MOONBUILD install
+                popd
+            done
+            set +e
+            popd
         fi
     ;;
 	veil)
@@ -472,8 +544,17 @@ case $1 in
 		
 	;;
     version)
-            echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it.${NC}"
-            echo -e "${WHITE}Veiler pre-release version. ${GRAY}v0.0.1-alpha${NC}"
+            echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it."
+            # \\  //
+            #  \\//
+            #   \/
+            
+            echo "__    __  _____   o  ___    _____   _____  "
+            echo "\ \  / / |     | | | | |   |     |  | ___\ " 
+            echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
+            echo "  \__/   |_____  |_| |___| |_____   |_|    "
+            echo -e "${NC}"
+            echo -e "${WHITE}Veiler pre-release version. ${GRAY}v0.1.1-alpha${NC}"
     ;;
     sync)
     ;;
