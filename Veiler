@@ -244,9 +244,10 @@ case $1 in
             echo -ne "${YELLOW}Packages to be installed: ${NC}"
             for Package in $@; do
                 PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                if [ -d /var/db/Veiler/local/"Package" ]; then
+                if [ -d /var/db/Veiler/local/"$Package" ]; then
                     LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
                 fi
+                exit 0
                 PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
                 if [ "$PKGVERSION" != "$LOCALPKGVERSION" ]; then
                     echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "$PKGNAME" ${GRAY}("$PKGVERSION")${NC}   "
@@ -257,11 +258,11 @@ case $1 in
                 if [ "$VEILERASK" -eq 1 ]; then
                     echo -ne "${YELLOW}||| ${WHITE}Proceed with the installation?[y/n]: "
                     read -n 1
-                fi
-                if [ "$REPLY" == "y" ]; then
-                    echo; true
-                else
-                    echo; exit 0
+                    if [ "$REPLY" == "y" ]; then
+                        echo; true
+                    else
+                        echo; exit 0
+                    fi
                 fi
             done
             set -e
@@ -292,7 +293,7 @@ case $1 in
             popd
         else
             echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
-            pushd /var/cache/Veiler && clean
+            pushd /var/cache/Veiler && clean &> /dev/null
             echo -e "${YELLOW}Important: ${WHITE}Fetching package(s)...${NC}"
             for Package in $@; do
                 PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
@@ -314,10 +315,11 @@ case $1 in
                     echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${YELLOW}$Package${NC}"; exit 1
                 fi
             done
-            echo -ne "${YELLOW}Packages to be installed: ${NC}"
+            veiler_stop_animation
+            echo -ne "\n${YELLOW}Packages to be installed: ${NC}"
             for Package in $@; do
                 PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                if [ -d /var/db/Veiler/local/"Package" ]; then
+                if [ -d /var/db/Veiler/local/"$Package" ]; then
                     LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
                 fi
                 PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
@@ -330,11 +332,11 @@ case $1 in
                 if [ "$VEILERASK" -eq 1 ]; then
                     echo -ne "${YELLOW}||| ${WHITE}Proceed with the installation?[y/n]: "
                     read -n 1
-                fi
-                if [ "$REPLY" == "y" ]; then
-                    echo; true
-                else
-                    echo; exit 0
+                    if [ "$REPLY" == "y" ]; then
+                        echo; true
+                    else
+                        echo; exit 0
+                    fi
                 fi
             done
             set -e
@@ -545,16 +547,12 @@ case $1 in
 	;;
     version)
             echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it."
-            # \\  //
-            #  \\//
-            #   \/
-            
             echo "__    __  _____   o  ___    _____   _____  "
             echo "\ \  / / |     | | | | |   |     |  | ___\ " 
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${WHITE}Veiler pre-release version. ${GRAY}v0.1.1-alpha${NC}"
+            echo -e "${WHITE}Veiler pre-release version. ${GRAY}v0.1.2-alpha${NC}"
     ;;
     sync)
     ;;
