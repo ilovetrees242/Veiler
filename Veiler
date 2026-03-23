@@ -46,22 +46,6 @@ second_animation(){
 veiler_stop_animation(){
     if [ -n "$PROCESSID" ]; then kill "$PROCESSID" &> /dev/null; echo; fi
 }
-package_check(){
-    if [ $(id -u) != 0 ]; then
-        echo -e "${ORANGE}Error: ${WHITE}You are not root! run as root with: ${GRAY}sudo ${YELLOW}$0${NC}"
-        exit 1
-    fi
-    play_animation "\r${YELLOW}Notice: ${WHITE}Checking if required packages are installed on your computer${NC}"
-    for PACKAGE in bash wget awk gcc make patch grep tar sed; do
-        $PACKAGE --version &> /dev/null 
-        if [ $? -eq 127 ]; then
-            echo -e "${ORANGE}Warning: ${YELLOW}$PACKAGE${WHITE} is not installed on your system! Veiler will use prebuilt binaries from the tool directory.${NC}"
-            PATH=$PATH:/usr/lib/Veiler/Tools/usr/bin/
-        fi
-        sleep 0.1
-    done
-    veiler_stop_animation
-}
 clean(){
     for directory in $(find /var/cache/Veiler/ -type d | sed '1d'); do
         rm -rfv "${directory}"
@@ -121,14 +105,6 @@ case $1 in
         if [ -z "$1" ]; then
             echo -e "${ORANGE}Error: ${WHITE}No package provided!${NC}"
             exit 1
-        fi
-        if [ "$CHECKPACKAGES" -eq 1 ]; then
-            package_check
-        else
-            for((i=0; i < 40; i++)){
-                printf "${WHITE}-"
-            }
-            printf "\n"
         fi
         play_animation "${YELLOW}Activity: ${WHITE}Checking if packages exist${NC}"
         sleep 0.1
@@ -219,7 +195,7 @@ case $1 in
         set -- ${PACKAGES[@]}
         if [ $VEILERQUIET -eq 0 ]; then
             echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
-            pushd /var/cache/Veiler && clean
+            pushd /var/cache/Veiler &> /dev/null && clean
             echo -e "${YELLOW}Important: ${WHITE}Fetching package(s)...${NC}"
             for Package in $@; do
                 PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
@@ -247,7 +223,6 @@ case $1 in
                 if [ -d /var/db/Veiler/local/"$Package" ]; then
                     LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
                 fi
-                exit 0
                 PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
                 if [ "$PKGVERSION" != "$LOCALPKGVERSION" ]; then
                     echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "$PKGNAME" ${GRAY}("$PKGVERSION")${NC}   "
@@ -366,8 +341,6 @@ case $1 in
         fi
     ;;
 	veil)
-        package_check
-        source /etc/veiler.conf
         if [ -z "$2" ]; then
             echo -e "${YELLOW}Package name not specified!${NC}"
             exit 1
@@ -532,18 +505,19 @@ case $1 in
         echo -e "${YELLOW}$0 Usage: $0 <COMMAND> <OPTIONS> ${NC}"
 		echo -e "${WHITE}$0 unveil|veil <OPTIONS> [PACKAGE]${NC}"
 		echo -e "${WHITE}$0 Options:${NC}" 
-	   echo -e "${GRAY}--verbose${NC}${WHITE} : Displays verbose output${NC}"
-       echo -e "${GRAY}--quiet${NC}${WHITE} : Displays quiet output, not too detailed.${NC}"
+	   echo -e "${GRAY}--verbose${NC}${WHITE}       : Displays verbose output${NC}"
+       echo -e "${GRAY}--quiet${NC}${WHITE}         : Displays quiet output, not too detailed.${NC}"
 	   echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)${NC}"
-	   echo -e "${GRAY}--test${NC}${WHITE}: Enables test harnesses${NC}" 
-       echo -e "${GRAY}--ask${NC}${WHITE}: Use confirmation prompts before performing actions related to the entire package${NC}"
-		echo -e "${WHITE}$0 unveil: Installs a package from source.${NC}"
-		echo -e "${WHITE}$0 veil  : Uninstalls a package installed on the system${NC}"
-		echo -e "${WHITE}$0 strengthen: Updates all packages installed on the system${NC}"
-		echo -e "${WHITE}$0 help: Displays this output${NC}"
-        echo -e "${WHITE}$0 version: Display package manager version${NC}"
-        echo -e "${WHITE}$0 info: Display information about a package${NC}"
-		
+	   echo -e "${GRAY}--test${NC}${WHITE}          : Enables test harnesses${NC}" 
+       echo -e "${GRAY}--ask${NC}${WHITE}           : Use confirmation prompts{NC}"
+		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
+		echo -e "${WHITE}veil       : Uninstalls a package installed on the system${NC}"
+		echo -e "${WHITE}strengthen : Updates all packages installed on the system${NC}"
+		echo -e "${WHITE}help       : Displays this output${NC}"
+        echo -e "${WHITE}version    : Display package manager version${NC}"
+        echo -e "${WHITE}info       : Display information about a package${NC}"
+        echo -e "${WHITE}rmpkg      : Removes ALL the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
+        echo -e "${YELLOW}Note: ${WHITE}See https://ilovetrees242.github.io/DevHelp/Website/Veiler.html for detailed information${NC}"
 	;;
     version)
             echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it."
@@ -555,6 +529,32 @@ case $1 in
             echo -e "${WHITE}Veiler pre-release version. ${GRAY}v0.1.2-alpha${NC}"
     ;;
     sync)
+        echo -e "${YELLOW}Important: ${WHITE}Syncing package repo${NC}"
+        if [ -d /usr/lib/Veiler ]; then
+            pushd /usr/lib/Veiler &> /dev/null
+            trap 'echo -e "${ORANGE}Error: ${WHITE}Could not sync repo!${NC}"' ERR
+            set -e
+            if [ ! -d Veiler ]; then
+                git clone https://github.com/ilovetrees242/Veiler.git
+                rm -rf Veiler/*
+                pushd Veiler > /dev/null
+                git restore db.tar.gz
+                popd
+            fi
+            if [ $VEILERQUIET=0 ]; then
+                pushd Veiler > /dev/null
+                git pull origin main
+                tar -C /var/db/Veiler/ --strip-components=1 -xvf db.tar.gz
+            else
+                pushd Veiler > /dev/null
+                git pull origin main &> /dev/null
+                tar -C /var/db/Veiler/ --strip-components=1 -xf db.tar.gz
+            fi
+            set +e
+            popd &> /dev/null
+        else
+            echo -e "${ORANGE}Error: ${WHITE}The package manager is not installed. Run the installation script again${NC}"
+        fi
     ;;
 	*)
         if [ -z $1 ]; 
