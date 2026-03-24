@@ -128,7 +128,7 @@ case $1 in
         # VICTIMPACKAGES holds a single copy of every package
         
         # Example -> which neofetch, missing deps: bash, ncurses, readline
-        # Contents of package buffer->
+        # Contents of PACKAGEBUFFER->
         # Stage 1 : which neofetch
         # stage 2 : bash bash
         # Stage 3 : ncurses readline ncurses readline
@@ -193,41 +193,34 @@ case $1 in
         }
         veiler_stop_animation
         set -- ${PACKAGES[@]}
+        for((i=1; i <= $#; i++)){
+            PKGVERSION[$((i-1))]="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"${!i}"/info)"
+            PKGNAME[$((i-1))]="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"${!i}"/info)"
+            ((COUNT++))
+        }
         if [ $VEILERQUIET -eq 0 ]; then
             echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
             pushd /var/cache/Veiler &> /dev/null && clean
             echo -e "${YELLOW}Important: ${WHITE}Fetching package(s)...${NC}"
-            for Package in $@; do
-                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                if [ ! -f "build-"$PKGNAME"-"$PKGVERSION".tar.gz" ]; then
-                    wget "$PKGREPO/build-"$PKGNAME"-"$PKGVERSION".tar.gz"
+            for((i=0; i < $#; i++)){
+                if [ ! -f "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" ]; then
+                    wget "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
                     if [ $? -ne 0 ]; then
-                        echo -e "${ORANGE}Error: ${WHITE}Could not download the package ${YELLOW}$PKGNAME${WHITE}!${NC}"
+                        echo -e "${ORANGE}Error: ${WHITE}Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!${NC}"
                         echo -e "${YELLOW}Tip: ${WHITE}Maybe try running $0 ${GRAY}sync?${NC}"
                         exit 1
                     fi
                 fi
-            done
-            echo -e "${YELLOW}Important: ${WHITE}Extracting the package build tarballs...${NC}"
-            for Package in $@; do
-                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                tar xvf "build-"$Package"-"$PKGVERSION".tar.gz"
-                if [ $? -ne 0 ]; then
-                    echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${YELLOW}$Package${NC}"; exit 1
-                fi
-            done
+            }
             echo -ne "${YELLOW}Packages to be installed: ${NC}"
-            for Package in $@; do
-                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                if [ -d /var/db/Veiler/local/"$Package" ]; then
-                    LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
+            for((i=0; i < $#; i++)){
+                if [ -d /var/db/Veiler/local/"${PKGNAME[$i]}" ]; then
+                    LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"${PKGNAME[$i]}"/info)"
                 fi
-                PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                if [ "$PKGVERSION" != "$LOCALPKGVERSION" ]; then
-                    echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "$PKGNAME" ${GRAY}("$PKGVERSION")${NC}   "
+                if [ "${PKGVERSION[$i]}" != "$LOCALPKGVERSION" ]; then
+                    echo -ne "${WHITE}"${PKGNAME[$i]}" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "${PKGNAME[$i]}" ${GRAY}("${PKGVERSION[$i]}")${NC}   "
                 else
-                    echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${NC}  "
+                    echo -ne "${WHITE}"${PKGNAME[$i]}" ${GRAY}("$LOCALPKGVERSION")${NC}  "
                 fi
                 echo; echo
                 if [ "$VEILERASK" -eq 1 ]; then
@@ -239,69 +232,60 @@ case $1 in
                         echo; exit 0
                     fi
                 fi
-            done
-            set -e
-            for Package in $@; do
-                echo -e "${YELLOW}Important: ${WHITE}Verifying downloaded packages integrity"
-                sha256sum --ignore-missing -c /var/db/Veiler/checksums.sha
-                echo -ne "${NC}"
-                if [ $? -eq 1 ]; then
-                    echo -e "${ORANGE}Error: ${WHITE}Could not verify package integrity for one or more packages!${NC}"
-                    echo -e "${YELLOW}Tip: ${WHITE}Possible causes: "
-                    echo -e "${WHITE}The maintainer forgot to update the checksums file${NC}"
-                    echo -e "${WHITE}The file failed to download properly${NC}"
-                    echo -e "${WHITE}The file was downloaded from an unknown source${NC}"
-                    exit 1
+            }
+            echo -e "${YELLOW}Important: ${WHITE}Extracting the package build tarballs...${NC}"
+            for((i=0; i < $#; i++)){
+                tar xf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
+                if [ $? -ne 0 ]; then
+                    echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${YELLOW}${PKGNAME[$i]}${NC}"; exit 1
                 fi
-            done
-            for Package in $@; do
-                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                Package="build-"$Package"-"$PKGVERSION""
-                pushd $Package
-                    trap "${ORANGE}Failed to build ${WHITE}$Package.${NC}" ERR
+            }
+            for((i=0; i < $#; i++)){
+                pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
+                    source ./MOONBUILD getpkg
+                popd &> /dev/null
+            }
+            for((i=0; i < $#; i++)){
+                echo -ne "\r${WHITE}(${GRAY}"$((i+1))"/"$#"${WHITE}) ${YELLOW}Important: ${WHITE}Verifying package integrity ||| ${PKGNAME[$i]}                 "
+                pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
+                    source ./MOONBUILD verifyintegrity
+                popd &> /dev/null
+                tar -cf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" 
+            }; echo
+            for((i=0; i < $#; i++)){
+                Package="build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}""
+                pushd $Package 
                     source ./MOONBUILD build
-                    trap "${ORANGE}Failed to install ${WHITE}$Package.${NC}" ERR
                     source ./MOONBUILD install
                 popd
-            done
-            set +e
+                rm -rf $Package
+            }
             popd
         else
             echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
-            pushd /var/cache/Veiler && clean &> /dev/null
+            pushd /var/cache/Veiler &> /dev/null && clean &> /dev/null
             echo -e "${YELLOW}Important: ${WHITE}Fetching package(s)...${NC}"
-            for Package in $@; do
-                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                if [ ! -f "build-"$PKGNAME"-"$PKGVERSION".tar.gz" ]; then
-                    wget -q --show-progress "$PKGREPO/build-"$PKGNAME"-"$PKGVERSION".tar.gz"
+            for((i=0; i < $#; i++)){
+                if [ ! -f "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" ]; then
+                    wget -q --show-progress "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
                     if [ $? -ne 0 ]; then
-                        echo -e "${ORANGE}Error: ${WHITE}Could not download the package ${YELLOW}$PKGNAME${WHITE}!${NC}"
+                        echo -e "${ORANGE}Error: ${WHITE}Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!${NC}"
                         echo -e "${YELLOW}Tip: ${WHITE}Maybe try running $0 ${GRAY}sync?${NC}"
                         exit 1
                     fi
                 fi
-            done
-            play_animation "${YELLOW}Important: ${WHITE}Extracting the package build tarballs...${NC}"
-            for Package in $@; do
-                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                tar xf "build-"$Package"-"$PKGVERSION".tar.gz"
-                if [ $? -ne 0 ]; then
-                    echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${YELLOW}$Package${NC}"; exit 1
-                fi
-            done
+            }
             veiler_stop_animation
-            echo -ne "\n${YELLOW}Packages to be installed: ${NC}"
-            for Package in $@; do
-                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                if [ -d /var/db/Veiler/local/"$Package" ]; then
-                    LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"$Package"/info)"
+            echo -ne "${YELLOW}Packages to be installed: ${NC}"
+            for((i=0; i < $#; i++)){
+                if [ -d /var/db/Veiler/local/"${PKGNAME[$i]}" ]; then
+                    LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/local/"${PKGNAME[$i]}"/info)"
                 fi
-                PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                if [ "$PKGVERSION" != "$LOCALPKGVERSION" ]; then
-                    echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "$PKGNAME" ${GRAY}("$PKGVERSION")${NC}   "
+                PKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"${PKGNAME[$i]}"/info)"
+                if [ "${PKGVERSION[$i]}" != "$LOCALPKGVERSION" ]; then
+                    echo -ne "${WHITE}"${PKGNAME[$i]}" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "${PKGNAME[$i]}" ${GRAY}("${PKGVERSION[$i]}")${NC}   "
                 else
-                    echo -ne "${WHITE}"$PKGNAME" ${GRAY}("$LOCALPKGVERSION")${NC}  "
+                    echo -ne "${WHITE}"${PKGNAME[$i]}" ${GRAY}("$LOCALPKGVERSION")${NC}  "
                 fi
                 echo; echo
                 if [ "$VEILERASK" -eq 1 ]; then
@@ -313,171 +297,88 @@ case $1 in
                         echo; exit 0
                     fi
                 fi
-            done
-            set -e
-            for Package in $@; do
-                echo -e "${YELLOW}Important: ${WHITE}Verifying downloaded packages integrity"
-                sha256sum --ignore-missing -c /var/db/Veiler/checksums.sha
-                echo -ne "${NC}"
-                if [ $? -eq 1 ]; then
-                    echo -e "${ORANGE}Error: ${WHITE}Could not verify package integrity for one or more packages!${NC}"
-                    echo -e "${YELLOW}Tip: ${WHITE}Possible causes: "
-                    echo -e "${WHITE}The maintainer forgot to update the checksums file${NC}"
-                    echo -e "${WHITE}The file failed to download properly${NC}"
-                    echo -e "${WHITE}The file was downloaded from an unknown source${NC}"
-                    exit 1
+            }
+            play_animation "${YELLOW}Important: ${WHITE}Extracting the package build tarballs...${NC}"
+            for((i=0; i < $#; i++)){
+                tar xf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
+                if [ $? -ne 0 ]; then
+                    veiler_stop_animation
+                    echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${YELLOW}${PKGNAME[$i]}${NC}"; exit 1
                 fi
-            done
-            for Package in $@; do
-                PKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"$Package"/info)"
-                Package="build-"$Package"-"$PKGVERSION""
-                pushd "$Package"
+            }
+            veiler_stop_animation
+            for((i=0; i < $#; i++)){
+                pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null 
+                    source ./MOONBUILD getpkg
+                popd &> /dev/null
+            }
+            for((i=0; i < $#; i++)){
+                echo -ne "\r${WHITE}(${GRAY}"$((i+1))"/"$#"${WHITE}) ${YELLOW}Important: ${WHITE}Verifying package integrity ||| ${PKGNAME[$i]}                 "
+                pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null 
+                    source ./MOONBUILD verifyintegrity
+                popd &> /dev/null
+                tar -cf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" 
+            }; echo
+            for((i=0; i < $#; i++)){
+                Package="build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}""
+                pushd "$Package" &> /dev/null
                     source ./MOONBUILD build
                     source ./MOONBUILD install
-                popd
-            done
-            set +e
-            popd
+                popd &> /dev/null
+            }
+            popd &> /dev/null
         fi
     ;;
 	veil)
-        if [ -z "$2" ]; then
-            echo -e "${YELLOW}Package name not specified!${NC}"
+        shift
+        if [ -z "$1" ]; then
+            echo -e "${ORANGE}Error: ${WHITE}No package was provided!${NC}"
             exit 1
         fi
-        shift
+        play_animation "${YELLOW}Activity: ${WHITE}Checking if packages exist${NC}"
+        sleep 0.1
+        for PACKAGE in "$@"; do
+            if [ ! -d "/var/db/Veiler/sync/$PACKAGE" ]; then echo -e "${ORANGE}\nError: ${WHITE}The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database.${NC}"; veiler_stop_animation; exit 1; fi
+        done
+        veiler_stop_animation
+        for((i=1; i <= $#; i++)){
+            PKGVERSION[$((i-1))]="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"${!i}"/info)"
+            PKGNAME[$((i-1))]="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"${!i}"/info)"
+            ((COUNT++))
+        }
         if [ "$VEILERQUIET" -eq 1 ]; then
-            echo -e "${YELLOW}Changing directory to /var/cache/Veiler...${NC}"
+            echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
             pushd /var/cache/Veiler &> /dev/null && clean &> /dev/null
-            if [ $# -ge 2 ]; then
-                echo "\033[s"
-                while true; do
-                    echo -ne "\r${ORANGE}Checking if packages exist   ${NC}"; sleep 0.2; echo "\033[u"
-                    echo -ne "\r${ORANGE}Checking if packages exist.  ${NC}"; sleep 0.2; echo "\033[u"
-                    echo -ne "\r${ORANGE}Checking if packages exist.. ${NC}"; sleep 0.2; echo "\033[u"
-                    echo -ne "\r${ORANGE}Checking if packages exist...${NC}"; sleep 0.2; echo "\033[u"
-                done &
-                PROCESSID=$!
-                wget "$PKGREPO$1.tar.gz" &> /dev/null 
-                if [ $? -eq 8 ]; then
-                    echo -e "${YELLOW}Package $1 not found!${NC}"
-                elif [ $? -eq 0 ]; then
-                    echo -e "${WHITE}->${YELLOW}Package ${WHITE}$1${YELLOW} found${NC}"
-                else
-                    echo -e "${YELLOW}An unknown error was encountered while checking if packages exist. Manual intervention required.${NC}"
-                fi
-            else
-                while true; do
-		            echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists   ${NC}"; sleep 0.2
-		            echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists.  ${NC}"; sleep 0.2
-		            echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists.. ${NC}"; sleep 0.2
-		            echo -ne "\r${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists...${NC}"; sleep 0.2
-                done &
-                PROCESSID=$!
-		        wget "$PKGREPO$1.tar.gz" &> /dev/null && kill $PROCESSID && echo
-		        case $? in
-		            8)
-				        echo -e "${YELLOW}Package ${WHITE}$1${WHITE}does not exist!${NC}"
-                        kill $PROCESSID
-		    	    ;;
-                    0)
-                    echo -e "\n${ORANGE}Package ${WHITE}$1${WHITE} found!${NC}"
-                    echo -e "${YELLOW}Checking if its already uninstalled...${NC}"
-                    if [ $(cat /var/db/Veiler/package.db | grep $1 | awk '{print $2}') == "no" ]; then
-                        echo -e "${WHITE}The package ${YELLOW}$1${WHITE} is already uninstalled.${NC}"
+            echo -e "${YELLOW}Important: ${WHITE}Fetching package(s)...${NC}"
+            for((i=0; i < $#; i++)){
+                if [ ! -f "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" ]; then
+                    wget -q --show-progress "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
+                    if [ $? -ne 0 ]; then
+                        echo -e "${ORANGE}Error: ${WHITE}Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!${NC}"
+                        echo -e "${YELLOW}Tip: ${WHITE}Maybe try running $0 ${GRAY}sync?${NC}"
                         exit 1
-                    else
-                        echo -e "${WHITE}Ok. The package ${YELLOW}$1${WHITE} is going to be uninstalled.${NC}"
-                        if [ $VEILERASK -eq 1 ]; then
-                            echo -ne "${WHITE}Proceed with the uninstallation?[y/n]${NC}"
-                            read -n 1
-                            if [ $REPLY == "n" ]; then
-                                echo -e "\n${YELLOW}Ok."
-                                exit 0
-                            fi
-                            if [[ $REPLY != "n" && $REPLY != "y" ]]; then
-                                echo -e "\n${YELLOW}Please enter a valid choice."
-                                exit 1
-                            fi
-                        fi
                     fi
-			        echo -e "${YELLOW}Uninstalling ${WHITE}$1${YELLOW} in${NC}"
-			        for i in 1 2 3 4 5 ; do
-                        printf "${WHITE}%d${NC}" "$i"
-			            for j in 1 2 3; do
-                            sleep 0.1
-                            printf "${YELLOW}.${NC}"
-                        done
-                        sleep 1
-			        done
-                    echo
-                    while true; do
-                        echo -ne "\r${ORANGE}Extracting the build tarball   ${NC}"; sleep 0.2
-                        echo -ne "\r${ORANGE}Extracting the build tarball.  ${NC}"; sleep 0.2
-                        echo -ne "\r${ORANGE}Extracting the build tarball.. ${NC}"; sleep 0.2
-                        echo -ne "\r${ORANGE}Extracting the build tarball...${NC}"; sleep 0.2
-                    done &
-                    PROCESSID=$!
-                    tar xf "$1.tar.gz" && kill $PROCESSID && echo -e "\n${YELLOW}->Successfully extracted $1.tar.gz${NC}"
-                    if [ $? -ne 0 ]; then echo -e "${ORANGE}An error was encountered while extracting!${NC}"; kill $PROCESSID; exit 1; fi
-					pushd "$1" &> /dev/null
-				        source ./MOONBUILD uninstall
-                        uninstalldb $1
-				    popd &> /dev/null
-			        ;;
-                    *)
-                        echo -e "${YELLOW}An unknown error has been encountered. Manual intervention is required.${NC}"
-                        popd &> /dev/null
-                        exit 1
-                    ;;
-		        esac
+                fi
+            }
+            play_animation "${YELLOW}Important: ${WHITE}Extracting the package build tarballs${NC}"
+            for((i=0; i < $#; i++)){
+                tar xf "build-${PKGNAME[$i]}-${PKGVERSION[$i]}.tar.gz"
+                if [ $? -ne 0 ]; then
+                    veiler_stop_animation
+                    echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${PKGNAME[$i]}"; exit 1
+                fi
+            }
+            veiler_stop_animation
+            for((i=0; i < $#; i++)){
+                pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null
+                    source ./MOONBUILD uninstall
+                popd &> /dev/null
+            }
             popd &> /dev/null
-            fi
-        else
-            echo -e "${YELLOW}Changing directory to /var/cache/Veiler..."; sleep 2
-            pushd /var/cache/Veiler && clean
-            if [ $# -ge 2 ]; then
-                # TO DO : Build commands for multiple packages
-                xx
-            else
-                echo -e "${ORANGE}Checking if the package ${YELLOW}$1${ORANGE} exists...${NC}"; sleep 0.2
-                PROCESSID="$!"
-                wget $PKGREPO$1.tar.gz
-                case $? in 
-                    8)
-                        echo -e "${YELLOW}Package ${WHITE}$1${YELLOW} does not exist!${NC}"
-                        exit 1
-                    ;;                    
-                    0)
-                        echo -e "\n${ORANGE}Package ${WHITE}$1${WHITE} found!${NC}"
-                        if [ $(cat /var/db/Veiler/package.db | grep $1 | awk '{print $2}') == "no" ]; then
-                            echo -e "${WHITE}The package ${YELLOW}$1${WHITE} is already uninstalled.${NC}"
-                            exit 1
-                        fi
-    			        echo -e "${YELLOW}Uninstalling ${WHITE}$1${YELLOW} in${NC}"
-	    		        for i in 1 2 3 4 5 ; do
-                            printf "${WHITE}%d${NC}" "$i"
-			                for j in 1 2 3; do
-                                sleep 0.1
-                                printf "${YELLOW}.${NC}"
-                            done
-                        sleep 1
-			            done
-                        echo
-                        printf "${YELLOW}Extracting the build tarball now...${NC}"
-                        tar xvf "$1.tar.gz"
-                        if [ $? -ne 0 ]; then echo -e "${ORANGE}An error was encountered while extracting!${NC}"; exit 1; fi
-                        pushd "$1"
-                            source ./MOONBUILD uninstall
-                            uninstalldb $1
-                        popd
-                    ;;
-                    *)
-                        echo -e "${ORANGE}An unknown error was encountered while downloading the build tarball.${NC}"
-                        exit 1
-                esac
-            fi
-         fi
+        else    
+            # to do
+            foo bar baz
+        fi
 	;;
 	strengthen)
         # TO DO: Later, add a feature to update packages installed on system if new version has been released and is greater than installed version
@@ -526,7 +427,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${WHITE}Veiler pre-release version. ${GRAY}v0.1.2-alpha${NC}"
+            echo -e "${WHITE}Veiler pre-release version. ${GRAY}v0.1.3-alpha${NC}"
     ;;
     sync)
         echo -e "${YELLOW}Important: ${WHITE}Syncing package repo${NC}"
@@ -554,6 +455,39 @@ case $1 in
             popd &> /dev/null
         else
             echo -e "${ORANGE}Error: ${WHITE}The package manager is not installed. Run the installation script again${NC}"
+        fi
+    ;;
+    rmpkg)
+        if [ $(id -u) -ne 0 ]; then
+            echo -e "${YELLOW}Notice: ${WHITE}You have to become root in order to perform this action.${NC}"
+            exit 1
+        elif [ ! -z "$3" ]; then
+            echo -e "${ORANGE}Error: ${WHITE}Only one package may be provided at a time${NC}"
+            exit 1
+        elif [ -z "$2" ]; then
+            echo -e "${ORANGE}Error: ${WHITE}No package was provided!${NC}"
+            exit 1
+        fi
+        PACKAGES=$(find /var/cache/Veiler -name "build-"$2"-*.*")
+        if [ -z "$PACKAGES" ]; then
+            echo -e "${ORANGE}Error: ${WHITE}No occurences of the following package could be found${NC}"
+            exit 1
+        fi
+        echo -e "${YELLOW}Notice: ${WHITE}The following occurences were found: ${NC}"
+        echo $PACKAGES
+        if [ $VEILERASK -eq 1 ]; then
+            echo -ne "${YELLOW}Important: ${WHITE}Are you sure you would like to delete them?[y/n]: ${NC}"
+            read -n 1
+            if [ "$REPLY" == "y" ]; then
+                true; echo
+            elif [ "$REPLY" == "n" ]; then
+                echo; exit 0
+            fi
+        fi
+        if [ $VEILERQUIET -eq 1 ]; then
+            rm -rf $PACKAGES
+        else
+            rm -rfv $PACKAGES
         fi
     ;;
 	*)
