@@ -1,0 +1,10 @@
+# Which
+MOONPKGNAME="bash"
+MOONPKGVERSION="2.23"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://ftp.gnu.org/gnu/which"
+DESC="Bash ( Bourne Again SHell ) is a simple, powerful shell by GNU"
+INSTALLEDSIZE=
+WODOCINSTALLEDSIZE=
+DOWNLOADSIZE=
+REQDSKSPC=

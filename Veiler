@@ -233,28 +233,28 @@ case $1 in
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
             ((TOTALDSR+=SPACEBUFFER))
         done
-        ((TOTALDSR/=1000))
+        ((TOTALDSR/=1024))
         echo -e "${DARKBLUE}*** ${BLUE}Total disk space required: ${WHITE}"$TOTALDSR"KiB${NC}"
         for PACKAGE in $@; do
             SPACEBUFFER=$(sed -n 's/^DOWNLOADSIZE=//p' /var/db/Veiler/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
             ((TOTALDOWNLOADSIZE+=SPACEBUFFER))
         done
-        ((TOTALDOWNLOADSIZE/=1000))
+        ((TOTALDOWNLOADSIZE/=1024))
         echo -e "${DARKBLUE}*** ${BLUE}Total download size: ${WHITE}"$TOTALDOWNLOADSIZE"KiB${NC}"
         for PACKAGE in $@; do
             SPACEBUFFER=$(sed -n 's/^INSTALLEDSIZE=//p' /var/db/Veiler/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
             ((TOTALINSTSIZE+=SPACEBUFFER))
         done
-        ((TOTALINSTSIZE/=1000))
+        ((TOTALINSTSIZE/=1024))
         echo -e "${DARKBLUE}*** ${BLUE}Total installed size: ${WHITE}"$TOTALINSTSIZE"KiB${NC}"
         for PACKAGE in $@; do
             SPACEBUFFER=$(sed -n 's/^WODOCINSTALLEDSIZE=//p' /var/db/Veiler/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
             ((WODOCINSTSIZE+=SPACEBUFFER))
         done
-        ((WODOCINSTSIZE/=1000))
+        ((WODOCINSTSIZE/=1024))
         echo -e "${DARKBLUE}*** ${BLUE}Total installed size ( without documentation ): ${WHITE}"$WODOCINSTSIZE"KiB${NC}"
         if [ "$VEILERASK" -eq 1 ]; then
             echo -ne "${YELLOW}||| ${WHITE}Proceed with the installation?[y/n]: "
@@ -262,7 +262,7 @@ case $1 in
             if [ "$REPLY" == "y" ]; then
                 echo; true
             else
-                echo -e "${NC}"; exit 0
+                echo -e "\n${WHITE}Goodbye!${NC}"; exit 0
             fi
         fi
         if [ $VEILERQUIET -eq 0 ]; then
@@ -301,7 +301,7 @@ case $1 in
                 pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
                     source ./MOONBUILD verifyintegrity
                     if [ $? -ne 0 ]; then
-                        echo -e "${ORANGE}Error: ${WHITE}Failed to verify package integrity for package: ${PKGNAME[$i]} ${GRAY}$((i+1)) ${WHITE}of ${GRAY}$# ${NC}"
+                        echo -e "${ORANGE}Error: ${WHITE}Failed to verify package integrity for package: ${PKGNAME[$i]} ${GRAY}($((i+1))/$#)${NC}"
                         exit 1
                     fi
                 popd &> /dev/null
@@ -312,8 +312,14 @@ case $1 in
                 pushd $Package 
                     echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Building ${WHITE}>>> ${PKGNAME[$i]}${NC}"
                     source ./MOONBUILD build
+                    if [ $? -ne 0 ]; then
+                        echo -e "${ORANGE}Error: ${WHITE}Failed to build >>> ${PKGNAME[$i]}${NC}"; exit 1
+                    fi
                     echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Installing ${WHITE}>>> ${PKGNAME[$i]}${NC}"
                     source ./MOONBUILD install
+                    if [ $? -ne 0 ]; then
+                        echo -e "${ORANGE}Error: ${WHITE}Failed to configure >>> ${PKGNAME[$i]}${NC}"; exit 1
+                    fi
                 popd
                 echo -e "${GRAY}($((i+1))/$#)${YELLOW}Completed build${WHITE} >>> ${PKGNAME[$i]}${NC}"
                 rm -rf $Package
@@ -342,7 +348,6 @@ case $1 in
                     echo -e "${ORANGE}Error: ${WHITE}Could not extract the build tarball for ${YELLOW}${PKGNAME[$i]} ${GRAY}($((i+1))/$#)${NC}"; exit 1
                 fi
             }
-            veiler_stop_animation
             echo -e "${YELLOW}Important: ${WHITE}Downloading sources...${NC}"
             for((i=0; i < $#; i++)){
                 pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null 
@@ -368,10 +373,16 @@ case $1 in
                 pushd "$Package" &> /dev/null
                     echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Building${WHITE} >>> ${PKGNAME[$i]}${NC}"
                     source ./MOONBUILD build
+                    if [ $? -ne 0 ]; then
+                        echo -e "${ORANGE}Error: ${WHITE}Failed to build >>> ${PKGNAME[$i]}${NC}"; exit 1
+                    fi
                     echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Installing${WHITE} >>> ${PKGNAME[$i]}${NC}"
                     source ./MOONBUILD install
+                    if [ $? -ne 0 ]; then
+                        echo -e "${ORANGE}Error: ${WHITE}Failed to configure >>> ${PKGNAME[$i]}${NC}"; exit 1
+                    fi
                 popd &> /dev/null
-                echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Completed the build${WHITE} >>> ${PACKAGENAME[$i]}${NC}"
+                echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Completed the build${WHITE} >>> ${PKGNAME[$i]}${NC}"
             }
             popd &> /dev/null
         fi
@@ -386,12 +397,26 @@ case $1 in
         for PACKAGE in "$@"; do
             if [ ! -d "/var/db/Veiler/sync/$PACKAGE" ]; then echo -e "${ORANGE}\nError: ${WHITE}The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database.${NC}"; veiler_stop_animation; exit 1; fi
         done
+        sleep 0.1
         veiler_stop_animation
         for((i=1; i <= $#; i++)){
             PKGVERSION[$((i-1))]="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"${!i}"/info)"
             PKGNAME[$((i-1))]="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' /var/db/Veiler/sync/"${!i}"/info)"
             ((COUNT++))
         }
+        echo -ne "\n${YELLOW}Packages to be uninstalled: ${WHITE}"
+        for((i=0; i <= ${PKGNAME[@]}; i++)){
+            echo -ne "${WHITE}${PKGNAME[$i]} ${GRAY}(${PKGVERSION[$i]})${NC}   "
+        }
+        if [ $VEILERASK -eq 1 ]; then
+            echo -ne "\n${BLUE}|||${WHITE}Proceed with the uninstallation?[y/n]: ${NC}"
+            read -n 1
+            if [ $REPLY == "y" ]; then
+                true; echo
+            else
+                echo -e "\n${WHITE}Goodbye!${NC}"; exit 0
+            fi
+        fi
         if [ "$VEILERQUIET" -eq 1 ]; then
             echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
             pushd /var/cache/Veiler &> /dev/null && clean &> /dev/null
@@ -464,13 +489,6 @@ case $1 in
 	;;
 	strengthen)
         # TO DO: Later, add a feature to update packages installed on system if new version has been released and is greater than installed version
-        source /etc/veiler.conf
-        if [ ! -d /run/Veiler ]; then 
-            mkdir -p /run/Veiler/Tarballs
-        fi
-        sudo cp -ra /var/cache/Veiler/*.tar.gz /run/Veiler/
-        pushd /run/Veiler
-            
 	;;
     info)
         shift
@@ -536,17 +554,18 @@ case $1 in
                 for PACKAGE in $PACKAGES; do
                     if [ -f $PACKAGE/info ]; then
                         source $PACKAGE/info 
-                    fi
-                    FOUNDPACKAGES[$COUNT]="$MOONPKGNAME"
-                    FOUNDPACKAGESVERSION[$COUNT]="$MOONPKGVERSION"
-                    FOUNDPACKAGESDESC[$COUNT]="$DESC"
-                    if [ -d "/var/db/Veiler/local/${FOUNDPACKAGES[$COUNT]}" ]; then
-                        FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}"
-                    else
-                        FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}No${NC}"
-                    fi  
-                    if [ -n ${FOUNDPACKAGES[$COUNT]} ]; then
-                        ((COUNT++))
+                        FOUNDPACKAGES[$COUNT]="$MOONPKGNAME"
+                        FOUNDPACKAGESVERSION[$COUNT]="$MOONPKGVERSION"
+                        FOUNDPACKAGESDESC[$COUNT]="$DESC"
+                        if [ -n ${FOUNDPACKAGES[$COUNT]} ]; then
+                            if [ -d "/var/db/Veiler/local/${FOUNDPACKAGES[$COUNT]}" ]; then
+                                FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}"
+                            else
+                                FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}No${NC}"
+                            fi  
+                            ((COUNT++))
+                        fi
+    
                     fi
                 done
             }   
@@ -590,7 +609,7 @@ case $1 in
         echo -e "${YELLOW}Important: ${WHITE}||| Syncing package repo${NC}"
         if [ -d /usr/lib/Veiler ]; then
             pushd /usr/lib/Veiler &> /dev/null
-            trap 'echo -e "${ORANGE}Error: ${WHITE}Could not sync repo!${NC}"' ERR
+            trap 'echo -e "${ORANGE}Error: ${WHITE}Could not sync repo!${NC}"; exit 1' ERR
             set -e
             if [ ! -d Veiler ]; then
                 git clone https://github.com/ilovetrees242/Veiler.git
