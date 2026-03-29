@@ -8,6 +8,7 @@ VEILERDOC=0
 VEILERASK=0
 VEILERSKIPDESC=0
 VEILERDEST="/"
+VEILERONLYBUILD=0
 PROCESSID=""
 
 # Colors
@@ -122,6 +123,15 @@ for(( i=1; i <= $#; i++ )){
             VEILERDEST=${!i}
             set -- ${@:1:$((i-2))} ${@:$((i+1))}
             i=0
+        ;;
+        --build-only)
+            if [ $VEILERONLYBUILD -eq 0 ]; then
+                set -- ${@:1:$((i-1))} ${@:$((i+1))}
+                VEILERONLYBUILD=1
+                i=0
+            elif [ $VEILERONLYBUILD -eq 1 ]; then
+                echo -e "${ORANGE}Error: ${WHITE}Only building is already enabled!${NC}"
+            fi  
         ;;
         *)
             OPTBUFFER=${!i}
@@ -307,7 +317,7 @@ case $1 in
                 pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
                     source ./MOONBUILD getpkg
                     if [ $? -ne 0 ]; then
-                        echo -e "${ORANGE}Error: ${WHITE}Failed to download the source for ${PKGNAME[$i]} ${GRAY}($((i+1))/$#)${NC}"
+                        echo -e "${ORANGE}Error: ${WHITE}Failed to download the source for ${PKGNAME[$i]} ${GRAY}($((i+1))/$#)${NC}"; exit 1
                     fi
                 popd &> /dev/null
             }
@@ -330,16 +340,22 @@ case $1 in
                     if [ $? -ne 0 ]; then
                         echo -e "${ORANGE}Error: ${WHITE}Failed to build ${ORANGE}>>> ${WHITE}${PKGNAME[$i]}${NC}"; exit 1
                     fi
-                    echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Installing ${GRAY}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-                    DESTDIR=$VEILERDEST source ./MOONBUILD install
-                    if [ $? -ne 0 ]; then
-                        echo -e "${ORANGE}Error: ${WHITE}Failed to install ${GRAY}>>> ${WHITE}${PKGNAME[$i]}${NC}"; exit 1
+                    if [ $VEILERONLYBUILD -eq 0 ]; then
+                        echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Installing ${GRAY}>>> ${WHITE}${PKGNAME[$i]}${NC}"
+                        DESTDIR=$VEILERDEST source ./MOONBUILD install
+                        if [ $? -ne 0 ]; then
+                            echo -e "${ORANGE}Error: ${WHITE}Failed to install ${GRAY}>>> ${WHITE}${PKGNAME[$i]}${NC}"; exit 1
+                        fi
                     fi
                 popd &> /dev/null
                 echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Completed build${WHITE} >>> ${PKGNAME[$i]}${NC}"
                 rm -rf $Package
             }
-            popd
+            if [ $VEILERONLYBUILD -eq 1 ]; then
+                echo -e "${YELLOW}Notice: ${WHITE}The package manager has finished building all the packages but has not installed them. Goodluck with whatever you are trying to do!${NC}"
+                echo -e "${YELLOW}Important: ${WHITE}The build directories can be found at /var/cache/Veiler/${NC}"
+            fi
+            popd &> /dev/null
         else
             echo -e "${YELLOW}Notice: ${WHITE}Changing directory to /var/cache/Veiler...${NC}"
             pushd /var/cache/Veiler &> /dev/null && clean &> /dev/null
@@ -367,7 +383,7 @@ case $1 in
                 pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null 
                     source ./MOONBUILD getpkg
                     if [ $? -ne 0 ]; then
-                        echo -e "${ORANGE}Error: ${WHITE}Failed to download the source for ${PKGNAME[$i]} ${GRAY}($((i+1))/$#)${NC}"
+                        echo -e "${ORANGE}Error: ${WHITE}Failed to download the source for ${PKGNAME[$i]} ${GRAY}($((i+1))/$#)${NC}"; exit 1
                     fi
                 popd &> /dev/null
             }
@@ -390,15 +406,21 @@ case $1 in
                     if [ $? -ne 0 ]; then
                         echo -e "${ORANGE}Error: ${WHITE}Failed to build ${ORANGE}>>> ${WHITE}${PKGNAME[$i]}${NC}"; exit 1
                     fi
-                    echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Installing ${GRAY}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-                    DESTDIR=$VEILERDEST source ./MOONBUILD install
-                    if [ $? -ne 0 ]; then
-                        echo -e "${ORANGE}Error: ${WHITE}Failed to configure ${GRAY}>>> ${WHITE}${PKGNAME[$i]}${NC}"; exit 1
+                    if [ $VEILERONLYBUILD -eq 0 ]; then
+                        echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Installing ${GRAY}>>> ${WHITE}${PKGNAME[$i]}${NC}"
+                        DESTDIR=$VEILERDEST source ./MOONBUILD install
+                        if [ $? -ne 0 ]; then
+                            echo -e "${ORANGE}Error: ${WHITE}Failed to configure ${GRAY}>>> ${WHITE}${PKGNAME[$i]}${NC}"; exit 1
+                        fi
                     fi
                 popd &> /dev/null
                 echo -e "${GRAY}($((i+1))/$#) ${YELLOW}Completed the build${WHITE} >>> ${PKGNAME[$i]}${NC}"
             }
             popd &> /dev/null
+            if [ $VEILERONLYBUILD -eq 1 ]; then
+                echo -e "${YELLOW}Notice: ${WHITE}The package manager has finished building the packages, but has not installed them. Goodluck with whatever you are doing!${NC}"
+                echo -e "${YELLOW}Important: ${WHITE}The build directories can be found at /var/cache/Veiler/${NC}"
+            fi
         fi
     ;;
 	veil)
@@ -535,7 +557,8 @@ case $1 in
         echo -e "${GRAY}--test${NC}${WHITE}          : Enables test harnesses${NC}" 
         echo -e "${GRAY}--ask${NC}${WHITE}           : Use confirmation prompts{NC}"
 		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
-        echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR>: Installs package into <DESTDIR> instead of default /"
+        echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /"
+        echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}
 		echo -e "${WHITE}veil       : Uninstalls a package installed on the system${NC}"
 		echo -e "${WHITE}strengthen : Updates all packages installed on the system${NC}"
 		echo -e "${WHITE}search     : Matches regex with a package name in the package database${NC}"
