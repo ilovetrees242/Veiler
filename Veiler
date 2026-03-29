@@ -576,7 +576,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${WHITE}${YELLOW}Veiler${NC} version 1.2.3${NC}"
+            echo -e "${WHITE}${YELLOW}Veiler${NC} version 1.2.4${NC}"
     ;;
     search)
         shift
