@@ -1,4 +1,4 @@
-# Ncurses
+# Ncurses ( New Curses ) 
 MOONPKGNAME="ncurses"
 MOONPKGVERSION="6.6"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"

@@ -558,7 +558,7 @@ case $1 in
         echo -e "${GRAY}--ask${NC}${WHITE}           : Use confirmation prompts{NC}"
 		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
         echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /"
-        echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}
+        echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}"
 		echo -e "${WHITE}veil       : Uninstalls a package installed on the system${NC}"
 		echo -e "${WHITE}strengthen : Updates all packages installed on the system${NC}"
 		echo -e "${WHITE}search     : Matches regex with a package name in the package database${NC}"
