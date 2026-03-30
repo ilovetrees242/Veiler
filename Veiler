@@ -153,6 +153,19 @@ case $1 in
             echo -e "${ORANGE}Error: ${WHITE}You need to be root in order to perform this action.${NC}"
             exit 1
         fi
+        BUFFER=$(echo $VEILERDEST | cut -c1 )
+        if [ $BUFFER != "/" ]; then
+            echo -e "${ORANGE}WARNING: ${WHITE}It is highly advised to use absolute paths instead of relative paths for installation of packages. If possible, please try to use absolute paths as much as you can. You can use \$PWD/<DESTDIR> to get an absolute path instead of a relative path. Using relative paths will most likely lead to breakages, for which I am not responsible.${NC}"
+            echo -ne "${ORANGE}Imporant: ${WHITE}Proceeding to install in: "
+            for i in 1 2 3 4 5; do
+                echo -ne "$i... "
+                sleep 2
+            done
+            echo -e "${NC}"
+        fi
+        if [ $VEILERONLYBUILD -eq 0 ]; then
+            echo -e "${YELLOW}Notice: ${WHITE}Packages will be installed in $VEILERDEST"
+        fi
         play_animation "${YELLOW}Activity: ${WHITE}Checking if packages exist${NC}"
         sleep 0.1
         for PACKAGE in "$@"; do
@@ -555,7 +568,7 @@ case $1 in
         echo -e "${GRAY}--quiet${NC}${WHITE}         : Displays quiet output, not too detailed.${NC}"
 	    echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)${NC}"
         echo -e "${GRAY}--test${NC}${WHITE}          : Enables test harnesses${NC}" 
-        echo -e "${GRAY}--ask${NC}${WHITE}           : Use confirmation prompts{NC}"
+        echo -e "${GRAY}--ask${NC}${WHITE}           : Use confirmation prompts${NC}"
 		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
         echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /"
         echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}"

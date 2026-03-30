@@ -1,0 +1,11 @@
+# Linux API Headers
+MOONPKGNAME="linux-api-headers"
+MOONPKGVERSION="6.18.10"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://www.kernel.org/pub/linux/kernel/v6.x"
+DESC="Exposes the programming interface of the kernel"
+INSTALLEDSIZE=
+WODOCINSTALLEDSIZE=
+DOWNLOADSIZE=
+REQDSKSPC=
+
