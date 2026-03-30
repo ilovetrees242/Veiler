@@ -322,7 +322,7 @@ case $1 in
                 popd &> /dev/null
             }
             for((i=0; i < $#; i++)){
-                echo -ne "\r${WHITE}(${GRAY}"$((i+1))"/"$#"${WHITE}) ${YELLOW}Important: ${WHITE}Verifying package integrity ${DARKBLUE}|||${WHITE} ${PKGNAME[$i]}                                     "
+                echo -ne "\r(${GRAY}"$((i+1))"/"$#") ${YELLOW}Important: ${WHITE}Verifying package integrity ${DARKBLUE}|||${WHITE} ${PKGNAME[$i]}                                     "
                 pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
                     source ./MOONBUILD verifyintegrity
                     if [ $? -ne 0 ]; then
@@ -576,7 +576,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${WHITE}${YELLOW}Veiler${NC} version 1.2.4${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.2.5${NC}"
     ;;
     search)
         shift
@@ -609,8 +609,9 @@ case $1 in
                     fi
                 done
             }   
-            for((i=0; i < ${#FOUNDPACKAGES[@]}; i++)){
+            for((i=0; i < ${#FOUNDPACKAGES[@]} - 1; i++)){
                 echo -ne "${WHITE}${FOUNDPACKAGES[$i]}${NC}"
+                echo -ne "${GRAY}(${FOUNDPACKAGESVERSION[$i]})${NC}"
                 echo -e "${FOUNDPACKAGESINSTALLED[$i]}"
                 echo -e "\t${WHITE}${FOUNDPACKAGESDESC[$i]}${NC}"
             } | more
@@ -626,6 +627,7 @@ case $1 in
                         if [[ -n "${FOUNDPACKAGES[$COUNT]}" || -n "${FOUNDPACKAGESDESC[$COUNT]}" ]]; then
                             FOUNDPACKAGES[$COUNT]="$MOONPKGNAME"
                             FOUNDPACKAGESVERSION[$COUNT]="$MOONPKGVERSION"
+                            FOUNDPACKAGESDESC[$COUNT]="$DESC"
                             if [ -d "/var/db/Veiler/local/${FOUNDPACKAGES[$COUNT]}" ]; then
                                 FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}"
                             else
@@ -637,7 +639,7 @@ case $1 in
                     fi
                 done
             }
-            for((i=0; i < ${#FOUNDPACKAGES[@]}; i++)){
+            for((i=0; i < ${#FOUNDPACKAGES[@]} - 1; i++)){
                 echo -ne "${WHITE}${FOUNDPACKAGES[$i]} ${NC}"
                 echo -ne "${GRAY}(${FOUNDPACKAGESVERSION[$i]})${NC}"
                 echo -e "${FOUNDPACKAGESINSTALLED[$i]}"
@@ -704,9 +706,9 @@ case $1 in
         trap 'echo -e "${ORANGE}Error: ${WHITE}Could not delete one or more occurences${NC}"; exit 1' ERR
         for((i=0; i < ${#PACKAGES[@]}; i++)){
             if [ $VEILERQUIET -eq 1 ]; then
-                rm -rf ${PACKAGE[$i]}
+                rm -rf ${PACKAGES[$i]}
             else
-                rm -rfv ${PACKAGE[$i]}
+                rm -rfv ${PACKAGES[$i]}
             fi
         }
         echo -e "${YELLOW}Notice: ${WHITE}Successfully deleted all the occurences for: $@${NC}"
