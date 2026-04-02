@@ -1,8 +1,8 @@
-# Which
+# Bash ( Bourn Again SHell )
 MOONPKGNAME="bash"
-MOONPKGVERSION="2.23"
+MOONPKGVERSION="5.3"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://ftp.gnu.org/gnu/which"
+SRC="http://mirrors.hopbox.net/gnu/bash"
 DESC="Bash ( Bourne Again SHell ) is a simple, powerful shell by GNU"
 INSTALLEDSIZE=
 WODOCINSTALLEDSIZE=
