@@ -2,9 +2,9 @@
 MOONPKGNAME="libstdc++"
 MOONPKGVERSION="15.2.0"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com/dylanaraps/neofetch/archive/7.1.0"
+SRC=""
 DESC="System information utiltiy used to display information like the kernel name, distro name uptime, packages installed, etc"
-INSTALLEDSIZE=353473
-WODOCINSTALLEDSIZE=341595
-DOWNLOADSIZE=95400
-REQDSKSPC=459297
+INSTALLEDSIZE=
+WODOCINSTALLEDSIZE=
+DOWNLOADSIZE=
+REQDSKSPC=

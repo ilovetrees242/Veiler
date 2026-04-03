@@ -10,5 +10,5 @@ install -v -m 775 -d /usr/lib/Veiler
 install -v -m 775 -d /var/db/Veiler/local
 tar --strip-components=1 -C /var/db/Veiler/ -xvf db.tar.gz
 install -v -m 774 -d /var/cache/Veiler
-install -v -m 774 veiler.conf /etc/
+install -v -m 775 veiler.conf /etc/
 set +e
