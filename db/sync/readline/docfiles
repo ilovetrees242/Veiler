@@ -1,3 +1,4 @@
+/usr/share/man/man3/history.3
 /usr/share/man/man3/readline.3
 /usr/share/info/readline.info
 /usr/share/info/rluserman.info
@@ -21,17 +22,3 @@
 /usr/share/doc/readline-8.3/history.pdf
 /usr/share/doc/readline-8.3/rluserman.dvi
 /usr/share/doc/readline-8.3/history_3.ps
-/usr/lib/libreadline.so.8.3
-/usr/lib/libhistory.so.8.3
-/usr/lib/libreadline.so.8.3.old
-/usr/lib/libhistory.so.8.3.old
-/usr/lib/pkgconfig/readline.pc
-/usr/lib/pkgconfig/history.pc
-/usr/include/readline/readline.h
-/usr/include/readline/keymaps.h
-/usr/include/readline/rlstdc.h
-/usr/include/readline/tilde.h
-/usr/include/readline/rlconf.h
-/usr/include/readline/history.h
-/usr/include/readline/rltypedefs.h
-/usr/include/readline/chardefs.h
