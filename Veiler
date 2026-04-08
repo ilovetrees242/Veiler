@@ -44,6 +44,7 @@ DEPBUFCNTR=0
 # Space and size related variables
 TOTALDSR=0
 TOTALINSTSIZE=0
+TOTALUNINSTSIZE=0
 TOTALDOWNLOADSIZE=0
 WODOCINSTSIZE=0
 
@@ -212,8 +213,10 @@ makepkgarray(){
     PKGVERSION=()
     PKGNAME=()
     while [ $# -gt 0 ]; do
-        local BUFFERPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' $VEILERDBPATH/sync/$1/info)"
-        local BUFFERPKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' $VEILERDBPATH/sync/$1/info)"
+        if [ -f $VEILERDBPATH/sync/$1/info ]; then
+            local BUFFERPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' $VEILERDBPATH/sync/$1/info)"
+            local BUFFERPKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' $VEILERDBPATH/sync/$1/info)"
+        fi
         if [ -z "$BUFFERPKGVERSION" -a -z "$BUFFERPKGNAME" ]; then
             log_warn "No valid information related to ${YELLOW}$1${WHITE} could be found. Skipping this package..."
             shift
@@ -231,6 +234,14 @@ makepkgarray(){
         PKGNAME+=( "$BUFFERPKGNAME" )
         shift
     done
+}
+checkifexists(){
+    for((i=0; i < ${#VICTIMPACKAGES[@]}; i++)){
+        if [ "${VICTIMPACKAGES[$i]}" == "$1" ]; then
+            echo "yes"; return 0;
+        fi
+    }
+    echo "no"
 }
 # --- End Functions ---
 while [ $# -gt 0 ]; do
@@ -336,9 +347,9 @@ case $1 in
         # --- Start dependency parsing --
         if [ $VEILERSKIPDEPS -eq 0 ]; then
             second_animation "$(log_info imp "Calculating dependencies")"
-            PKGCOUNT=0 
+            PACKAGES=()
             for PACKAGE in "$@"; do
-                PACKAGES[$PKGCOUNT]=$PACKAGE
+                PACKAGES+=( $PACKAGE )
                 ((PKGCOUNT++))
             done
             for((i=0; i < ${#PACKAGES[@]}; i++)){
@@ -358,30 +369,24 @@ case $1 in
             # Stage 4 : 
             while [ ! -z "$PACKAGEBUFFER" ]; do
                 for PACKAGE in ${PACKAGEBUFFER[@]}; do 
-                    while read DEPENDENCY; do
-                        if [ ! -d "$VEILERDBPATH/local/$DEPENDENCY" ]; then 
-                            DEPS[$DEPCNTR]=$DEPENDENCY
-                            DEPSBUFFER[$DEPBUFCNTR]=$DEPENDENCY
-                            ((DEPCNTR++))
-                            ((DEPBUFCNTR++))
-                        fi
-                done < "$VEILERDBPATH/sync/$PACKAGE/dependencies"
-            done
-            PACKAGEBUFFER=()
-            for((i=0; i < ${#DEPSBUFFER[@]}; i++)){
-                PACKAGEBUFFER[$i]=${DEPSBUFFER[$i]}
-            }
-            DEPSBUFFER=()
-            DEPBUFCNTR=0
-            done    
-            checkifexists(){
-                for((i=0; i < ${#VICTIMPACKAGES[@]}; i++)){
-                    if [ "${VICTIMPACKAGES[$i]}" == "$1" ]; then
-                        echo "yes"; return 0;
+                    if [ -f $VEILERDBPATH/sync/$PACKAGE/dependencies ]; then
+                        while read DEPENDENCY; do
+                            if [ ! -d "$VEILERDBPATH/local/$DEPENDENCY" ]; then 
+                                DEPS[$DEPCNTR]=$DEPENDENCY
+                                DEPSBUFFER[$DEPBUFCNTR]=$DEPENDENCY
+                                ((DEPCNTR++))
+                                ((DEPBUFCNTR++))
+                            fi
+                        done < "$VEILERDBPATH/sync/$PACKAGE/dependencies"
                     fi
+                done
+                PACKAGEBUFFER=()
+                for((i=0; i < ${#DEPSBUFFER[@]}; i++)){
+                    PACKAGEBUFFER[$i]=${DEPSBUFFER[$i]}
                 }
-                echo "no"
-            }
+                DEPSBUFFER=()
+                DEPBUFCNTR=0
+            done    
             for((i=0; i < ${#PACKAGES[@]}; i++)){
                 PACKAGEBUFFER[$i]=${PACKAGES[$i]}
             }
@@ -411,8 +416,8 @@ case $1 in
         fi
         # -- End dependency calculating --
         makepkgarray $@
-        echo -ne "\n${YELLOW}Packages to be installed: ${NC}"
-        for((i=0; i < $#; i++)){
+        echo -ne "\n${YELLOW}Packages to be installed ${GRAY}(${#PKGNAME[@]}): ${NC}"
+        for((i=0; i < ${#PKGNAME[@]}; i++)){
             if [ -d $VEILERDBPATH/local/"${PKGNAME[$i]}" -a -n "${PKGNAME[$i]}" ]; then
                 LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' $VEILERDBPATH/local/"${PKGNAME[$i]}"/info)"
                 if [ "${PKGVERSION[$i]}" != "$LOCALPKGVERSION" ]; then
@@ -425,7 +430,7 @@ case $1 in
             fi
         }
         echo; echo
-        for PACKAGE in $@; do
+        for PACKAGE in ${PKGNAME[@]}; do
             SPACEBUFFER=$(sed -n 's/^REQDSKSPC=//p' $VEILERDBPATH/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
             ((TOTALDSR+=SPACEBUFFER))
@@ -437,7 +442,7 @@ case $1 in
             ((TOTALDSR/=1024))
             echo -e "${DARKBLUE}*** ${BLUE}Total disk space required: ${WHITE}"$TOTALDSR"KiB${NC}"
         fi
-        for PACKAGE in $@; do
+        for PACKAGE in ${PKGNAME[@]}; do
             SPACEBUFFER=$(sed -n 's/^DOWNLOADSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
             ((TOTALDOWNLOADSIZE+=SPACEBUFFER))
@@ -449,7 +454,7 @@ case $1 in
             ((TOTALDOWNLOADSIZE/=1024))
             echo -e "${DARKBLUE}*** ${BLUE}Total download size: ${WHITE}"$TOTALDOWNLOADSIZE"KiB${NC}"
         fi
-        for PACKAGE in $@; do
+        for PACKAGE in ${PKGNAME[@]}; do
             SPACEBUFFER=$(sed -n 's/^INSTALLEDSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
             ((TOTALINSTSIZE+=SPACEBUFFER))
@@ -461,7 +466,7 @@ case $1 in
             ((TOTALINSTSIZE/=1024))
             echo -e "${DARKBLUE}*** ${BLUE}Total installed size: ${WHITE}"$TOTALINSTSIZE"KiB${NC}"
         fi
-        for PACKAGE in $@; do
+        for PACKAGE in ${PKGNAME[@]}; do
             SPACEBUFFER=$(sed -n 's/^WODOCINSTALLEDSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
             ((WODOCINSTSIZE+=SPACEBUFFER))
@@ -509,7 +514,13 @@ case $1 in
         sleep 0.1
         veiler_stop_animation
         makepkgarray $@
-        echo -ne "\n${YELLOW}Packages to be uninstalled: ${WHITE}"
+        for PACKAGE in ${PKGNAME[@]}; do
+            SPACEBUFFER=$(sed -n 's/^INSTALLEDSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
+            SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
+            ((TOTALUNINSTSIZE+=SPACEBUFFER))
+        done
+        echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC}"
+        echo -ne "\n${YELLOW}Packages to be uninstalled ${GRAY}(${#PKGNAME[@]})${NC}"
         for((i=0; i < ${#PKGNAME[@]}; i++)){
             echo -ne "${WHITE}${PKGNAME[$i]} ${GRAY}(${PKGVERSION[$i]})${NC}   "
         }
@@ -522,15 +533,15 @@ case $1 in
                 echo -e "\n${WHITE}Goodbye!${NC}"; exit 0
             fi
         else 
-            echo -e "\n"
+            echo
         fi
         log_info notice "Changing directory to $VEILERCACHEPATH..."
         pushd $VEILERCACHEPATH &> /dev/null && clean &> /dev/null
-        getBuildTarballs
-        extractBuildTarballs
-        getSources 
-        verifyChecksums 
-        uninstallPackages
+            getBuildTarballs
+            extractBuildTarballs
+            getSources 
+            verifyChecksums 
+            uninstallPackages
         popd &> /dev/null
 	;;
 	strengthen)
@@ -538,19 +549,20 @@ case $1 in
         bruh
 	;;
     info)
+        PACKAGES=()
         shift
         if [ -z $1 ]; then
-            echo -e "${YELLOW}No package provided.${NC}"
+            log_err "No package provided!"
         fi
         for((i=1; i <= $#; i++)){
             if [ ! -d "$VEILERDBPATH/local/${!i}" ]; then
-                echo -e log_warn "${!i} is not installed."
-                set -- $(echo "$@" | sed "s@${!i}@@")
-                i=1
+                log_warn "${!i} is not installed."
+            else
+                PACKAGES+=( ${!i} )
             fi
         }
-        for((i=1; i <= $#; i++)){
-            source "$VEILERDBPATH/local/${!i}/info" 2&> /dev/null
+        for((i=0; i < ${#PACKAGES[@]}; i++)){
+            source "$VEILERDBPATH/local/${PACKAGES[$i]}/info" 2&> /dev/null
             echo -e "${YELLOW}$MOONPKGNAME${NC} ${GRAY}($MOONPKGVERSION)${NC}"
             echo -e "\t${WHITE}$DESC${NC}"
         }

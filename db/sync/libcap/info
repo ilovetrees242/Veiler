@@ -1,0 +1,10 @@
+# Libcap ( Library for Capabilities )
+MOONPKGNAME="libcap"
+MOONPKGVERSION="2.77"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://www.kernel.org/pub/linux/libs/security/linux-privs/libcap2/"
+DESC="POSIX 1003.1e capabilities for managing priveledges"
+INSTALLEDSIZE=399318
+WODOCINSTALLEDSIZE=311775
+DOWNLOADSIZE=199688
+REQDSKSPC=139296

@@ -379,7 +379,6 @@
 /usr/share/doc/ncurses-6.6/html/ada/terminal_interface-curses-text_io__adb.htm
 /usr/share/doc/ncurses-6.6/html/ncurses-intro.html
 /usr/share/doc/ncurses-6.6/html/index.html
-[LFS@Hp440G8 /tmp $] > sudo find /usr/share/doc/ncurses-6.6/ -type f 
 /usr/share/doc/ncurses-6.6/ncurses-intro.doc
 /usr/share/doc/ncurses-6.6/hackguide.doc
 /usr/share/doc/ncurses-6.6/html/hackguide.html
