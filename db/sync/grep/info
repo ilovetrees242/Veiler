@@ -1,0 +1,10 @@
+# Grep ( GNU Regular Expression Print )
+MOONPKGNAME="grep"
+MOONPKGVERSION="3.12"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://mirrors.hopbox.net/gnu/grep"
+DESC="GNUs regular expression matcher which can be used to search through files and directories for regex"
+INSTALLEDSIZE=1652044
+WODOCINSTALLEDSIZE=1479530
+DOWNLOADSIZE=1918448
+REQDSKSPC=26925301

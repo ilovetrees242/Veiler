@@ -50,7 +50,7 @@ WODOCINSTSIZE=0
 
 . /etc/veiler.conf 
 trap 'veiler_stop_animation' TERM 
-trap 'echo -e "\n${YELLOW}Interrupted${NC}"; veiler_stop_animation; ' INT
+trap 'echo -e "\n${YELLOW}Interrupted${NC}"; veiler_stop_animation; exit 1' INT
 
 # --- Functions ---
 play_animation(){
@@ -232,6 +232,8 @@ makepkgarray(){
         fi
         PKGVERSION+=( "$BUFFERPKGVERSION" )
         PKGNAME+=( "$BUFFERPKGNAME" )
+        BUFFERPKGVERSION=
+        BUFFERPKGNAME=
         shift
     done
 }
@@ -415,7 +417,11 @@ case $1 in
             veiler_stop_animation
         fi
         # -- End dependency calculating --
+<<<<<<< HEAD
         makepkgarray $@
+=======
+        makepkgarray "$@"
+>>>>>>> dd1e991 (New packages, bug fixes in PM)
         echo -ne "\n${YELLOW}Packages to be installed ${GRAY}(${#PKGNAME[@]}): ${NC}"
         for((i=0; i < ${#PKGNAME[@]}; i++)){
             if [ -d $VEILERDBPATH/local/"${PKGNAME[$i]}" -a -n "${PKGNAME[$i]}" ]; then
@@ -600,7 +606,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.3.3${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.4-rc1${NC}"
     ;;
     search)
         shift

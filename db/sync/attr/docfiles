@@ -1,0 +1,11 @@
+/usr/share/man/man1/getfattr.1
+/usr/share/man/man1/setfattr.1
+/usr/share/man/man1/attr.1
+/usr/share/man/man3/attr_list.3
+/usr/share/man/man3/attr_get.3
+/usr/share/man/man3/attr_multi.3
+/usr/share/man/man3/attr_set.3
+/usr/share/man/man3/attr_remove.3
+/usr/share/doc/attr-2.5.2/COPYING
+/usr/share/doc/attr-2.5.2/CHANGES
+/usr/share/doc/attr-2.5.2/COPYING.LGPL
