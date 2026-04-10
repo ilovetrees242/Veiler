@@ -7,12 +7,13 @@ VEILERTESTS=0
 VEILERQUIET=0
 VEILERDOC=0
 VEILERASK=0
-VEILERSKIPDESC=0
 VEILERONLYBUILD=0
 VEILERNOROOT=0
+VEILERSKIPDESC=0
 VEILERSKIPDEPS=0
 VEILERSKIPCLEAN=0
 VEILERSKIPINST=0
+VEILERSKIPINTEGRITY=0
 VEILERMBE=0
 VEILERDEST="/"
 VEILERCACHEPATH="/var/cache/Veiler/"
@@ -163,10 +164,12 @@ getSources(){
     }
 }
 verifyChecksums(){
+    if [ $VEILERSKIPINTEGRITY -eq 1 ]; then
+        return
+    fi
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -ne "\r${YELLOW}Important >>> ${GRAY}("$((i+1))"/"${#PKGNAME[@]}") ${WHITE}Verifying package integrity ${DARKBLUE}|||${WHITE} ${PKGNAME[$i]}                                     ${NC}"
         pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
-            # Package integrity verification is still not finalised. Later there will be a proper implementation
             sha256sum -c --quiet integrity.sha256
             if [ $? -ne 0 ]; then
                 echo
@@ -304,6 +307,9 @@ for((i=0; i < ${#OPTIONS[@]}; i++)){
         --megabytes)
             if [ $VEILERMBE -eq 0 ]; then VEILERMBE=1; else log_err "Showing size in megabytes already enabled!"; fi
         ;;
+        --skip-integrity)
+            if [ $VEILERSKIPINTEGRITY -eq 0 ]; then VEILERSKIPINTEGRITY=1; else log_err "Skipping verifying package integrity is already enabled!"; fi
+        ;;
         *)
             log_err "Invalid option ${GRAY}${OPTIONS[$i]}${NC}"
         ;;
@@ -417,11 +423,7 @@ case $1 in
             veiler_stop_animation
         fi
         # -- End dependency calculating --
-<<<<<<< HEAD
-        makepkgarray $@
-=======
         makepkgarray "$@"
->>>>>>> dd1e991 (New packages, bug fixes in PM)
         echo -ne "\n${YELLOW}Packages to be installed ${GRAY}(${#PKGNAME[@]}): ${NC}"
         for((i=0; i < ${#PKGNAME[@]}; i++)){
             if [ -d $VEILERDBPATH/local/"${PKGNAME[$i]}" -a -n "${PKGNAME[$i]}" ]; then
@@ -586,6 +588,7 @@ case $1 in
         echo -e "${GRAY}--skip-clean${NC}${WHITE}    : Skip deleting existing build directories in cache ( will cause the package manager to not start building from scratch${NC}"
         echo -e "${GRAY}--skip-deps${NC}${WHITE}     : Skip dependency check ( can break packages )${NC}"
         echo -e "${GRAY}--megabytes${NC}${WHITE}     : Show size in megabytes instead of kilobytes${NC}"
+        echo -e "${GRAY}--skip-integrity${NC}${WHITE}: Do not verify package integrity ( unsafe and can lead to security issues and building corrupted packages )${NC}"
 		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
         echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /${NC}"
         echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}"
@@ -606,7 +609,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.4-rc1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.5-rc1${NC}"
     ;;
     search)
         shift
