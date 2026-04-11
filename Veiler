@@ -76,8 +76,8 @@ veiler_stop_animation(){
     if [ -n "$PROCESSID" ]; then kill "$PROCESSID" &> /dev/null; echo; fi
 }
 clean(){
-    if [ $VEILERSKIPCLEAN -eq 0 ]; then
-        for directory in $(find  -type d | sed '1d'); do
+    if [ $VEILERSKIPCLEAN -eq 0 -a -d $VEILERCACHEPATH ]; then
+        for directory in $(find $VEILERCACHEPATH -type d | sed '1d'); do
             rm -rf "${directory}"
         done        
     else
@@ -609,7 +609,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.5-rc1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.6-rc1${NC}"
     ;;
     search)
         shift
