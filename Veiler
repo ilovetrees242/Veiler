@@ -88,8 +88,7 @@ log_warn(){
     echo -e "${ORANGE}WARNING >>>${WHITE} $1${NC}"
 }
 log_err(){
-    echo -e "${RED}ERROR >>>${WHITE} $1${NC}"
-    exit 1 
+    echo -e "${RED}ERROR >>>${WHITE} $1${NC}"; exit 1 
 }
 log_info(){
     case $1 in
@@ -130,11 +129,7 @@ getBuildTarballs(){
                 wget -nv --show-progress "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
             else
                 wget -q --show-progress "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
-            fi
-            if [ $? -ne 0 ]; then
-                log_err "Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!"
-                log_info tip "Maybe try running $0 ${GRAY}sync?${NC}"
-            fi
+            fi || log_err "Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!"; log_info tip "Maybe try running $0 ${GRAY}sync?${NC}"
         fi
     }
 }
@@ -146,20 +141,14 @@ extractBuildTarballs(){
             tar xf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
         else
             tar xvf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
-        fi
-        if [ $? -ne 0 ]; then
-            log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not extract the build tarball for ${RED}>>> ${WHITE}${PKGNAME[$i]}"
-        fi
+        fi || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not extract the build tarball for ${RED}>>> ${WHITE}${PKGNAME[$i]}"
     }
 }
 getSources(){
     log_info imp "Getting source(s)..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
-            source ./MOONBUILD getpkg
-            if [ $? -ne 0 ]; then
-                log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to download the source for ${PKGNAME[$i]}"
-            fi
+            source ./MOONBUILD getpkg || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to download the source for ${PKGNAME[$i]}"
         popd &> /dev/null
     }
 }
@@ -170,11 +159,7 @@ verifyChecksums(){
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -ne "\r${YELLOW}Important >>> ${GRAY}("$((i+1))"/"${#PKGNAME[@]}") ${WHITE}Verifying package integrity ${DARKBLUE}|||${WHITE} ${PKGNAME[$i]}                                     ${NC}"
         pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
-            sha256sum -c --quiet integrity.sha256
-            if [ $? -ne 0 ]; then
-                echo
-                log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for package ${RED}>>>${WHITE} ${PKGNAME[$i]}"
-            fi
+            sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for package ${RED}>>>${WHITE} ${PKGNAME[$i]}"
         popd &> /dev/null
         tar -cf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" 
         sleep 0.1
@@ -205,8 +190,8 @@ uninstallPackages(){
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Uninstalling ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null
-        trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to uninstall ${RED}>>>${WHITE} ${PKGNAME[$i]}"' ERR
-        source ./MOONBUILD uninstall
+            trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to uninstall ${RED}>>>${WHITE} ${PKGNAME[$i]}"' ERR
+            source ./MOONBUILD uninstall
         popd &> /dev/null
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Successfully uninstalled ${DARKBLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
     }
@@ -609,21 +594,21 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.6-rc1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.7-rc1${NC}"
     ;;
     search)
         shift
-        FOUNDPACKAGES=""
-        FOUNDPACKAGESVERSION=""
-        FOUNDPACKAGESDESC=""
-        FOUNDPACKAGESINSTALLED=""
+        FOUNDPACKAGES=()
+        FOUNDPACKAGESVERSION=()
+        FOUNDPACKAGESDESC=()
+        FOUNDPACKAGESINSTALLED=()
         if [ -z $1 ]; then
             log_err "No package was provided!"
         fi
         if [ $VEILERSKIPDESC -eq 1 ]; then
             COUNT=0
             for((i=1; i <= $#; i++)){
-                PACKAGES=$(ls -d $VEILERDBPATH/sync/*${!i}*  /dev/null)
+                PACKAGES=$(ls -d $VEILERDBPATH/sync/*${!i}* 2&> /dev/null)
                 for PACKAGE in $PACKAGES; do
                     if [ -f $PACKAGE/info ]; then
                         source $PACKAGE/info 
@@ -641,7 +626,7 @@ case $1 in
                     fi
                 done
             }   
-            for((i=0; i < ${#FOUNDPACKAGES[@]} - 1; i++)){
+            for((i=0; i < ${#FOUNDPACKAGES[@]}; i++)){
                 echo -ne "${WHITE}${FOUNDPACKAGES[$i]}${NC}"
                 echo -ne "${GRAY}(${FOUNDPACKAGESVERSION[$i]})${NC}"
                 echo -e "${FOUNDPACKAGESINSTALLED[$i]}"
@@ -691,6 +676,7 @@ case $1 in
                 pushd Veiler &> /dev/null
                 git restore db.tar.gz
                 popd &> /dev/null
+                rm -rf "$VEILERDBPATH"
             fi
             if [ "$VEILERQUIET" -eq 0 ]; then
                 pushd Veiler &> /dev/null
@@ -741,6 +727,12 @@ case $1 in
             fi
         }
         log_info notice "Successfully deleted all the occurences for: $@"
+    ;;
+    clearcache)
+        log_info imp "Always try to not run this operation as root user."
+        if [ -n "$VEILERCACHEPATH" -a -d "$VEILERCACHEPATH" ]; then
+            find "$VEILERCACHEPATH" -delete
+        fi
     ;;
 	*)
         if [ -z $1 ]; then 

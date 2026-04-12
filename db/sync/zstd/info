@@ -1,0 +1,10 @@
+# Zstd ( Z standard ) 
+MOONPKGNAME="zstd"
+MOONPKGVERSION="1.5.7"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://github.com/facebook/zstd/releases/download/v1.5.7/"
+DESC="Zstd is a fast real time compression algorithm"
+INSTALLEDSIZE=3863405
+WODOCINSTALLEDSIZE=3826258
+DOWNLOADSIZE=2434947
+REQDSKSPC=22605195

@@ -1,0 +1,10 @@
+# GCC ( GNU Compiler Collection )  
+MOONPKGNAME="gcc"
+MOONPKGVERSION="15.2.0"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://mirrors.hopbox.net/gnu/gcc/gcc-15.2.0/"
+DESC="The GNU Compiler collection for compiling various languages like C, C++, Ada, Fortran, etc"
+INSTALLEDSIZE=
+WODOCINSTALLEDSIZE=
+DOWNLOADSIZE=
+REQDSKSPC=
