@@ -585,6 +585,7 @@ case $1 in
         echo -e "${WHITE}version    : Display package manager version${NC}"
         echo -e "${WHITE}info       : Display information about installed packages${NC}"
         echo -e "${WHITE}rmpkg      : Removes ALL the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
+        echo -e "${WHITE}clearcache : Remove EVERYTHING in the cache directory of the package manager.${NC}"
         echo -e "${YELLOW}Note: ${WHITE}See https://ilovetrees242.github.io/DevHelp/Website/Veiler.html for detailed information${NC}"
 	;;
     version)
@@ -594,7 +595,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.7-rc1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.8rc1${NC}"
     ;;
     search)
         shift
@@ -729,10 +730,10 @@ case $1 in
         log_info notice "Successfully deleted all the occurences for: $@"
     ;;
     clearcache)
-        log_info imp "Always try to not run this operation as root user."
         if [ -n "$VEILERCACHEPATH" -a -d "$VEILERCACHEPATH" ]; then
-            find "$VEILERCACHEPATH" -delete
+            rm -rvf $VEILERCACHEPATH/*
         fi
+        log_info imp "Always try to not run this operation as root user."
     ;;
 	*)
         if [ -z $1 ]; then 
