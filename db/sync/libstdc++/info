@@ -2,9 +2,10 @@
 MOONPKGNAME="libstdc++"
 MOONPKGVERSION="15.2.0"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC=""
-DESC="System information utiltiy used to display information like the kernel name, distro name uptime, packages installed, etc"
-INSTALLEDSIZE=
-WODOCINSTALLEDSIZE=
-DOWNLOADSIZE=
-REQDSKSPC=
+MOONBASEPKG="gcc"
+SRC="https://mirrors.hopbox.net/gnu/gcc/15.2.0"
+DESC="Standard C++ Library provided by GCC"
+INSTALLEDSIZE=36615756
+WODOCINSTALLEDSIZE=36615756
+DOWNLOADSIZE=101056279
+REQDSKSPC=2813651477

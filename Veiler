@@ -129,7 +129,10 @@ getBuildTarballs(){
                 wget -nv --show-progress "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
             else
                 wget -q --show-progress "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
-            fi || log_err "Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!"; log_info tip "Maybe try running $0 ${GRAY}sync?${NC}"
+            fi 
+            if [ $? -ne 0 ]; then 
+                log_err "Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!" && log_info tip "Maybe try running $0 ${GRAY}sync?${NC}"
+            fi
         fi
     }
 }
@@ -167,6 +170,7 @@ verifyChecksums(){
 }
 buildPackages(){
     export MAKEFLAGS
+    echo $MAKEFLAGS
     log_info imp "Building the package(s)..."
     if [ $VEILERONLYBUILD -eq 0 ]; then export DESTDIR; fi
     for((i=0; i < ${#PKGNAME[@]}; i++)){
@@ -513,7 +517,7 @@ case $1 in
             ((TOTALUNINSTSIZE+=SPACEBUFFER))
         done
         echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC}"
-        echo -ne "\n${YELLOW}Packages to be uninstalled ${GRAY}(${#PKGNAME[@]})${NC}"
+        echo -ne "\n${YELLOW}Packages to be uninstalled ${GRAY}(${#PKGNAME[@]}): ${NC}"
         for((i=0; i < ${#PKGNAME[@]}; i++)){
             echo -ne "${WHITE}${PKGNAME[$i]} ${GRAY}(${PKGVERSION[$i]})${NC}   "
         }
@@ -595,7 +599,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.8rc1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.4.9-rc1${NC}"
     ;;
     search)
         shift
