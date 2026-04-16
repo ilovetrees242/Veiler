@@ -2,6 +2,7 @@
 /usr/share/man/man1/locate.1
 /usr/share/man/man1/updatedb.1
 /usr/share/man/man1/find.1
+/usr/share/man/man5/locatedb.5
 /usr/share/locale/da/LC_MESSAGES/findutils.mo
 /usr/share/locale/bg/LC_MESSAGES/findutils.mo
 /usr/share/locale/id/LC_MESSAGES/findutils.mo

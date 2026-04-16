@@ -1,3 +1,4 @@
+/usr/share/man/man5/acl.5
 /usr/share/man/man1/getfacl.1
 /usr/share/man/man1/setfacl.1
 /usr/share/man/man1/chacl.1
@@ -56,7 +57,9 @@
 /usr/share/doc/acl-2.3.2/COPYING.LGPL
 /usr/lib/libacl.la
 /usr/lib/libacl.so.1.1.2302
+/usr/lib/libacl.so
 /usr/lib/pkgconfig/libacl.pc
+/usr/lib/libacl.so.1
 /usr/include/sys/acl.h
 /usr/include/acl/libacl.h
 /usr/bin/getfacl

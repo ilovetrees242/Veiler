@@ -1,10 +1,16 @@
+/usr/share/man/man1/getfattr.1
 /usr/share/man/man1/setfattr.1
 /usr/share/man/man1/attr.1
+/usr/share/man/man3/attr_getf.3
 /usr/share/man/man3/attr_list.3
 /usr/share/man/man3/attr_get.3
+/usr/share/man/man3/attr_removef.3
+/usr/share/man/man3/attr_listf.3
 /usr/share/man/man3/attr_multi.3
 /usr/share/man/man3/attr_set.3
 /usr/share/man/man3/attr_remove.3
+/usr/share/man/man3/attr_multif.3
+/usr/share/man/man3/attr_setf.3
 /usr/share/locale/fr/LC_MESSAGES/attr.mo
 /usr/share/locale/de/LC_MESSAGES/attr.mo
 /usr/share/locale/en@boldquot/LC_MESSAGES/attr.mo
@@ -20,6 +26,8 @@
 /usr/share/doc/attr-2.5.2/CHANGES
 /usr/share/doc/attr-2.5.2/COPYING.LGPL
 /usr/lib/libattr.so.1.1.2502
+/usr/lib/libattr.so
+/usr/lib/libattr.so.1
 /usr/lib/pkgconfig/libattr.pc
 /usr/lib/libattr.la
 /usr/include/attr/libattr.h
