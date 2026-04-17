@@ -156,14 +156,13 @@ getSources(){
     }
 }
 verifyChecksums(){
-    if [ $VEILERSKIPINTEGRITY -eq 1 ]; then
-        return
-    fi
     for((i=0; i < ${#PKGNAME[@]}; i++)){
-        echo -ne "\r${YELLOW}Important >>> ${GRAY}("$((i+1))"/"${#PKGNAME[@]}") ${WHITE}Verifying package integrity ${DARKBLUE}|||${WHITE} ${PKGNAME[$i]}                                     ${NC}"
-        pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
-            sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for package ${RED}>>>${WHITE} ${PKGNAME[$i]}"
-        popd &> /dev/null
+        if [ $VEILERSKIPINTEGRITY -eq 0 ]; then
+            echo -ne "\r${YELLOW}Important >>> ${GRAY}("$((i+1))"/"${#PKGNAME[@]}") ${WHITE}Verifying package integrity ${DARKBLUE}|||${WHITE} ${PKGNAME[$i]}                                     ${NC}"
+            pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
+                sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for package ${RED}>>>${WHITE} ${PKGNAME[$i]}"
+            popd &> /dev/null
+        fi
         tar -cf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the package" 
         sleep 0.1
     }; echo
@@ -618,7 +617,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.5.0-rc1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.5.1-rc1${NC}"
     ;;
     search)
         shift
@@ -700,16 +699,16 @@ case $1 in
                 pushd Veiler &> /dev/null
                 git restore db.tar.gz
                 popd &> /dev/null
-                rm -rf "$VEILERDBPATH"
+                rm -rf "$VEILERDBPATH"/sync
             fi
             if [ "$VEILERQUIET" -eq 0 ]; then
                 pushd Veiler &> /dev/null
                 git pull origin main
-                tar -C $VEILERDBPATH --strip-components=1 -xvf db.tar.gz
+                tar -C "$VEILERDBPATH" --strip-components=1 -xvf db.tar.gz
             else
                 pushd Veiler &> /dev/null
                 git pull origin main &> /dev/null
-                tar -C $VEILERDBPATH --strip-components=1 -xf db.tar.gz
+                tar -C "$VEILERDBPATH" --strip-components=1 -xf db.tar.gz
             fi
             set +e
             trap - ERR
