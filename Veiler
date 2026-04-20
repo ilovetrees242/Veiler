@@ -14,6 +14,7 @@ VEILERSKIPDEPS=0
 VEILERSKIPCLEAN=0
 VEILERSKIPINST=0
 VEILERSKIPINTEGRITY=0
+VEILERERREXIT=0
 VEILERMBE=0
 VEILERDEST="/"
 VEILERCACHEPATH="/var/cache/Veiler/"
@@ -41,6 +42,9 @@ DEPS=""
 VICTCNTR=0
 DEPCNTR=0
 DEPBUFCNTR=0
+
+LOCALPKGVERSIONS=()
+SYNCPKGVERSIONS=()
 
 # Space and size related variables
 TOTALDSR=0
@@ -168,25 +172,25 @@ verifyChecksums(){
     }; echo
 }
 buildPackages(){
-    export MAKEFLAGS
+    export MAKEFLAGS="$MAKEFLAGS"
     log_info imp "Building the package(s)..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Building ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null
-            trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR
+            if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
             source ./MOONBUILD build
             if [ $VEILERONLYBUILD -eq 0 ]; then 
-                trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR
+                if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
                 source ./MOONBUILD install
                 cp -r $VEILERDBPATH/sync/${PKGNAME[$i]} $VEILERDBPATH/local
-                cd "$MOONPKGNAME-$MOONPKGVERSION"/DEST
+                cd "${PKGNAME[$i]}-${PKGVERSION[$i]}"/DEST
                 find . ! -type d | sed 's/^.//' > $VEILERDBPATH/local/${PKGNAME[$i]}/files 
                 if [ ! -d $VEILERDEST ]; then mkdir -p $VEILERDEST; fi
                 if [ $VEILERQUIET -eq 1 ]; then
-                    cp -rav ./* $VEILERDEST
+                    cp -frav ./* $VEILERDEST
                 else
-                    cp -ra ./* $VEILERDEST
+                    cp -fra ./* $VEILERDEST
                 fi
             fi
         popd &> /dev/null
@@ -304,6 +308,9 @@ for((i=0; i < ${#OPTIONS[@]}; i++)){
         ;;
         --skip-integrity)
             if [ $VEILERSKIPINTEGRITY -eq 0 ]; then VEILERSKIPINTEGRITY=1; else log_err "Skipping verifying package integrity is already enabled!"; fi
+        ;;
+        --no-errexit)
+            if [ $VEILERERREXIT -eq 0 ]; then VEILERERREXIT=1; else log_err "Not exiting upon errors already enabled!"; fi
         ;;
         *)
             log_err "Invalid option ${GRAY}${OPTIONS[$i]}${NC}"
@@ -560,8 +567,35 @@ case $1 in
         popd &> /dev/null
 	;;
 	strengthen)
-        # TO DO: Later, add a feature to update packages installed on system if new version has been released and is greater than installed version
-        bruh
+        log_info notice "This does not actually upgrade packages so far"
+        log_info notice "It is advised to run ${BLUE}$0 ${YELLOW}sync${WHITE} before performing this operation."
+        shift
+        PACKAGES=( $(ls $VEILERDBPATH/local) )
+        for PACKAGE in ${PACKAGES[@]}; do
+            if [ -f $VEILERDBPATH/local/$PACKAGE/info ]; then 
+                source $VEILERDBPATH/local/$PACKAGE/info
+                LOCALPKGVERSIONS+=( "$MOONPKGVERSION" )
+                source $VEILERDBPATH/sync/$PACKAGE/info
+                SYNCPKGVERSIONS+=( "$MOONPKGVERSION" )
+            else
+                log_warn "No valid information file could be found for the package ${BLUE}$PACKAGE"
+            fi
+        done
+        echo -en "${WHITE}\nPackages to be upgraded: "
+        for((i=0; i < ${#LOCALPKGVERSIONS[@]}; i++)){
+            if [ ${LOCALPKGVERSIONS[$i]} != ${SYNCPKGVERSIONS[$i]} ]; then
+                echo -e "${PACKAGE[$i]} ${GRAY}(${LOCALPKGVERSIONS})${WHITE} ${YELLOW}-> ${WHITE}${$PACKAGE[$i]} ${GRAY}(${SYNCPKGVERSIONS})${NC}   "
+            fi
+        }
+        if [ $VEILERASK -eq 1 ]; then
+            echo -ne "\n\nProceed with the installation?[y/n]: "
+            read -n 1
+            if [ $REPLY == "y" -o $REPLY == "Y" ]; then
+                true; echo 
+            else
+               echo -e "\n${BLUE}Goodbye!${NC}"; exit 0
+            fi
+        fi
 	;;
     info)
         PACKAGES=()
@@ -577,9 +611,13 @@ case $1 in
             fi
         }
         for((i=0; i < ${#PACKAGES[@]}; i++)){
-            source "$VEILERDBPATH/local/${PACKAGES[$i]}/info" 2&> /dev/null
-            echo -e "${YELLOW}$MOONPKGNAME${NC} ${GRAY}($MOONPKGVERSION)${NC}"
-            echo -e "\t${WHITE}$DESC${NC}"
+            if [ -f "$VEILERDBPATH/local/${PACKAGES[$i]}/info" ]; then
+                source "$VEILERDBPATH/local/${PACKAGES[$i]}/info" 
+                echo -e "${YELLOW}$MOONPKGNAME${NC} ${GRAY}($MOONPKGVERSION)${NC}"
+                echo -e "\t${WHITE}$DESC${NC}"
+            else
+                log_warn "Could not find a valid information file for ${YELLOW}${PACKAGES[$i]}"
+            fi
         }
     ;;
 	help)
@@ -596,6 +634,7 @@ case $1 in
         echo -e "${GRAY}--skip-deps${NC}${WHITE}     : Skip dependency check ( can break packages )${NC}"
         echo -e "${GRAY}--megabytes${NC}${WHITE}     : Show size in megabytes instead of kilobytes${NC}"
         echo -e "${GRAY}--skip-integrity${NC}${WHITE}: Do not verify package integrity ( unsafe and can lead to security issues and building corrupted packages )${NC}"
+        echo -e "${GRAY}--no-errexit${NC}${WHITE}    : Do not exit upon an error WHILE building the packages ( might cause you to have broken packages installed lol )${NC}"
 		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
         echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /${NC}"
         echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}"
@@ -617,7 +656,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.5.1-rc1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}development version 1.6.0-rc1${NC}"
     ;;
     search)
         shift

@@ -8,17 +8,26 @@ Useflags change how the package is built and installed, or it enables you to use
 -EMACS
 -XZ
 -BZIP2
+-ZLIB
 -ACL
 -SELINUX
 -ATTR
 -CURSES
 -C++
 -JAVA
--LANGD2
+-LANGD
 -BOOTSTRAPPING
 -MULTILIB
+-LZMA
+-READLINE
 --- ENABLE  FLAGS ---
 +GNULD
 +DEBUG
++DOC-DOXYGEN
 +SENSORS
 +LTO
++PAM
++SELINUX
++OPTIMIZATIONS
++SAFETY
++VALGRIND

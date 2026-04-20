@@ -1,0 +1,11 @@
+# Bzip2
+MOONPKGNAME="bzip2"
+MOONPKGVERSION="1.0.8"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+PATCHSRC="https://www.linuxfromscratch.org/patches/lfs/13.0/bzip2-1.0.8-install_docs-1.patch"
+SRC="https://www.sourceware.org/pub/bzip2"
+DESC="Bzip2 contains programs for compressing and decompressing files, and it yields a better compression rate than with the standard gzip"
+INSTALLEDSIZE=2723303
+WODOCINSTALLEDSIZE=604078
+DOWNLOADSIZE=810029
+REQDSKSPC=5720285
