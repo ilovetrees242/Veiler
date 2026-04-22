@@ -1,0 +1,11 @@
+# Expect
+MOONPKGNAME="expect"
+MOONPKGVERSION="5.45.4"
+MOONPKG="$MOONPKGNAME$MOONPKGVERSION"
+PATCHSRC="https://www.linuxfromscratch.org/patches/lfs/13.0/expect-5.45.4-gcc15-1.patch"
+SRC="https://prdownloads.sourceforge.net/expect"
+DESC="Expat is an XML Parsing library"
+INSTALLEDSIZE=543939
+WODOCINSTALLEDSIZE=386155
+DOWNLOADSIZE=632363
+REQDSKSPC=3590532

@@ -624,7 +624,6 @@ case $1 in
         echo -e "${YELLOW}$0 Usage:${WHITE} $0 <COMMAND> <OPTIONS> ${NC}"
 		echo -e "${WHITE}$0 unveil|veil <OPTIONS> [PACKAGE]${NC}"
 		echo -e "${WHITE}$0 Options:${NC}" 
-	    echo -e "${GRAY}--verbose${NC}${WHITE}       : Displays verbose output${NC}"
         echo -e "${GRAY}--quiet${NC}${WHITE}         : Displays quiet output, not too detailed.${NC}"
 	    echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)${NC}"
         echo -e "${GRAY}--test${NC}${WHITE}          : Enables test harnesses${NC}" 
@@ -650,7 +649,7 @@ case $1 in
         echo -e "${YELLOW}Note: ${WHITE}See https://ilovetrees242.github.io/DevHelp/Website/Veiler.html for detailed information${NC}"
 	;;
     version)
-            echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it."
+            echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it. This is my 3rd great project out of 5, so I really admire this"
             echo "__    __  _____   o  ___    _____   _____  "
             echo "\ \  / / |     | | | | |   |     |  | ___\ " 
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "

@@ -1,0 +1,11 @@
+# TCL ( Tool Command Line )
+MOONPKGNAME="tcl"
+MOONPKGVERSION="8.6.17"
+MOONPKG="$MOONPKGNAME$MOONPKGVERSION"
+DOCSRC="https://downloads.sourceforge.net/tcl/$MOONPKG-html.tar.gz"
+SRC="https://downloads.sourceforge.net/tcl"
+DESC="A dynamic power programming language for automation"
+INSTALLEDSIZE=16639097
+WODOCINSTALLEDSIZE=7249359
+DOWNLOADSIZE=11724552
+REQDSKSPC=92024285
