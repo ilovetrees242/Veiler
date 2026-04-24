@@ -1,8 +1,6 @@
 #!/bin/bash
 # Main package manager related variables
 declare -a OPTIONS PACKAGES
-PKGREPO="https://ilovetrees242.github.io/DevHelp/Website/Packages"
-# Soon there will be a feature to use multiple repos. altrough not yet
 VEILERTESTS=0
 VEILERQUIET=0
 VEILERDOC=0
@@ -20,6 +18,8 @@ VEILERDEST="/"
 VEILERCACHEPATH="/var/cache/Veiler/"
 VEILERDBPATH="/var/db/Veiler"
 PROCESSID=""
+PKGREPO="https://ilovetrees242.github.io/DevHelp/Website/Packages"
+USEFLAGS=""
 
 # Colors
 DARKBLUE='\033[0;34m'
@@ -37,12 +37,16 @@ declare -a PKGNAME PKGVERSION
 PACKAGES=""
 PACKAGEBUFFER=""
 VICTIMPACKAGES=""
-DEPSBUFFER=""
-DEPS=""
+DEPSBUFFER=()
+DEPS=()
 VICTCNTR=0
 DEPCNTR=0
 DEPBUFCNTR=0
 
+ADDITIONALDEPS=()
+UPGRADEDPACKAGES=()
+UPGRADEDPACKAGESLOCALVERSION=()
+UPGRADEDPACKAGESSYNCVERSION=()
 LOCALPKGVERSIONS=()
 SYNCPKGVERSIONS=()
 
@@ -51,9 +55,13 @@ TOTALDSR=0
 TOTALINSTSIZE=0
 TOTALUNINSTSIZE=0
 TOTALDOWNLOADSIZE=0
+TOTALUPGRADESIZE=0
+TOTALUPGRADESIZEWODOC=0
 WODOCINSTSIZE=0
+SIZEBUFFER=0
 
 . /etc/veiler.conf 
+
 trap 'veiler_stop_animation' TERM 
 trap 'echo -e "\n${YELLOW}Interrupted${NC}"; veiler_stop_animation; exit 1' INT
 
@@ -175,17 +183,25 @@ buildPackages(){
     export MAKEFLAGS="$MAKEFLAGS"
     log_info imp "Building the package(s)..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
+        if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build or install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Building ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null
-            if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
             source ./MOONBUILD build
             if [ $VEILERONLYBUILD -eq 0 ]; then 
-                if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
                 source ./MOONBUILD install
-                cp -r $VEILERDBPATH/sync/${PKGNAME[$i]} $VEILERDBPATH/local
+                cp -r "$VEILERDBPATH/sync/${PKGNAME[$i]}" "$VEILERDBPATH/local"
                 cd "${PKGNAME[$i]}-${PKGVERSION[$i]}"/DEST
                 find . ! -type d | sed 's/^.//' > $VEILERDBPATH/local/${PKGNAME[$i]}/files 
+                if [ $VEILERDOC -eq 0 ]; then
+                    while read file; do
+                        if [ $VEILERQUIET -eq 1 ]; then
+                            rm -f DEST/$file
+                        else
+                            rm -fv DEST/$file
+                        fi
+                    done < $VEILERDBPATH/sync/${PKGNAME[$i]}/docfiles
+                fi
                 if [ ! -d $VEILERDEST ]; then mkdir -p $VEILERDEST; fi
                 if [ $VEILERQUIET -eq 1 ]; then
                     cp -frav ./* $VEILERDEST
@@ -194,7 +210,7 @@ buildPackages(){
                 fi
             fi
         popd &> /dev/null
-        echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Completed the build${DARBKLUE} >>> ${WHITE}${PKGNAME[$i]}${NC}"
+        echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Completed the build${DARKBLUE} >>> ${WHITE}${PKGNAME[$i]}${NC}"
     }
     trap - ERR
 }
@@ -202,14 +218,100 @@ uninstallPackages(){
     log_info imp "Uninstalling the package(s)"
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Uninstalling ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-        pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null
-            trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to uninstall ${RED}>>>${WHITE} ${PKGNAME[$i]}"' ERR
-            source ./MOONBUILD uninstall
-            rm -rf $VEILERDBPATH/local/${PKGNAME[$i]}
-        popd &> /dev/null
+        while read file; do
+            if [ $VEILERQUIET -eq 1 ]; then
+                rm -f "$file"
+            else
+                rm -fv "$file"
+            fi
+        done < $VEILERDBPATH/local/${PKGNAME[$i]}/files
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Successfully uninstalled ${DARKBLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
     }
     trap - ERR
+}
+resolvedeps(){
+    # --- Start dependency calculating ---
+    if [ $VEILERSKIPDEPS -eq 0 ]; then
+        second_animation "$(log_info imp "Calculating dependencies")"
+        PACKAGES=()
+        USEFLAGS=( $USEFLAGS )
+        for PACKAGE in "$@"; do
+            PACKAGES+=( "$PACKAGE" )
+            if [ -n ${USEFLAGS[0]} ]; then
+                for FLAG in ${USEFLAGS[@]}; do
+                    if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
+                        for((i=1; i <= $(wc -l "$VEILERDBPATH/sync/$PACKAGE/optdependencies" | sed 's/ .*//'); i++)){
+                            if [ "$FLAG" == "$(sed -n "$i s@ .*@@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies")" ]; then
+                                PACKAGES+=( $(sed -n "$i s@.* @@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies") )
+                            fi
+                        }
+                    fi
+                done
+            fi
+        done
+        PACKAGEBUFFER=( ${PACKAGES[@]} )
+        # PACKAGES contains the packages which actually need to installed
+        # PACKAGEBUFFER contains the packages whos depdencies are being checked
+        # DEPS contains the all the found dependencies of all packages generated by the graph
+        # DEPSBUFFER contains the packages whos dependencies will be checked after the next iteration
+        # VICTIMPACKAGES holds a single copy of every package
+
+        # Example -> which neofetch, missing deps: bash, ncurses, readline
+        # Contents of PACKAGEBUFFER->
+        # Stage 1 : which neofetch
+        # stage 2 : bash bash
+        # Stage 3 : ncurses readline ncurses readline
+        # Stage 4 : 
+        # DEPS="which neofetch bash bash ncurses readline ncurses readline"
+        # After deduplication
+        # DEPS="which neofetch bash ncurses readline"
+        # PACKAGES="readline ncurses bash neofetch which" ( DEPS copied to PACKAGES, then PACKAGES reversed)
+        while [ ${#PACKAGEBUFFER[@]} -ne 0 ]; do
+            for PACKAGE in ${PACKAGEBUFFER[@]}; do 
+                if [ -f $VEILERDBPATH/sync/$PACKAGE/dependencies ]; then
+                    while read DEPENDENCY; do
+                        if [ ! -d "$VEILERDBPATH/local/$DEPENDENCY" ]; then 
+                            DEPS+=( "$DEPENDENCY" )
+                            DEPSBUFFER+=( "$DEPENDENCY" )
+                        fi
+                    done < "$VEILERDBPATH/sync/$PACKAGE/dependencies"
+                fi
+            done
+            PACKAGEBUFFER=()
+            PACKAGEBUFFER=( ${DEPSBUFFER[@]} )
+            DEPSBUFFER=()
+        done    
+        PACKAGEBUFFER=( ${PACKAGES[@]} )
+        PACKAGEBUFFER+=( ${DEPS[@]} )
+        for((i=0; i < ${#DEPS[@]}; i++)){
+            EXISTS=$(checkifexists ${DEPS[$i]})
+            if [ $EXISTS == "no" ]; then
+                ADDITIONALDEPS+=( ${DEPS[$i]} )
+            fi
+        }
+        for((i=0; i < ${#PACKAGEBUFFER[@]}; i++)){
+            EXISTS=$(checkifexists ${PACKAGEBUFFER[$i]})
+            if [ $EXISTS == "no" ]; then
+                VICTIMPACKAGES+=( ${PACKAGEBUFFER[$i]} )
+            fi
+        }
+        BUFFER=${PACKAGEBUFFER[@]}
+        for PACKAGE in ${VICTIMPACKAGES[@]}; do
+            OCCURENCES=$(echo ${PACKAGEBUFFER[@]} | grep -ow "$PACKAGE" | wc -w)
+            ((OCCURENCES--))
+            for((i=0; i < $OCCURENCES; i++)){
+                BUFFER=$(echo $BUFFER | sed "s@$PACKAGE@@1")
+            }
+        done
+        # Reverse the packages to build in correct order
+        PACKAGES=( $BUFFER )
+        PACKAGES=( $(printf "%s\n" ${PACKAGES[@]} | tac) )
+        veiler_stop_animation
+        makepkgarray ${PACKAGES[@]}
+    else
+        return
+    fi
+    # --- End dependency calculating ---
 }
 makepkgarray(){
     PKGVERSION=()
@@ -354,88 +456,10 @@ case $1 in
             if [ ! -d "$VEILERDBPATH/sync/$PACKAGE" ]; then veiler_stop_animation ; log_err "The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database"; fi
         done
         veiler_stop_animation
-        # --- Start dependency parsing --
-        if [ $VEILERSKIPDEPS -eq 0 ]; then
-            second_animation "$(log_info imp "Calculating dependencies")"
-            PACKAGES=()
-            USEFLAGS=( $USEFLAGS )
-            for PACKAGE in "$@"; do
-                PACKAGES+=( "$PACKAGE" )
-                if [ -n $USEFLAGS ]; then
-                    for FLAG in ${USEFLAGS[@]}; do
-                        if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
-                            for((i=1; i <= $(wc -l "$VEILERDBPATH/sync/$PACKAGE/optdependencies" | sed 's/ .*//'); i++)){
-                                if [ "$FLAG" == "$(sed -n "$i s@ .*@@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies")" ]; then
-                                    PACKAGES+=( $(sed -n "$i s@.* @@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies") )
-                                fi
-                            }
-                        fi
-                    done
-                fi
-            done
-            PACKAGEBUFFER=( ${PACKAGES[@]} )
-            # PACKAGES contains the packages which actually need to installed
-            # PACKAGEBUFFER contains the packages whos depdencies are being checked
-            # DEPS contains the all the found dependencies of all packages generated by the graph
-            # DEPSBUFFER contains the packages whos dependencies will be checked after the next iteration
-            # VICTIMPACKAGES holds a single copy of every package
-
-            # Example -> which neofetch, missing deps: bash, ncurses, readline
-            # Contents of PACKAGEBUFFER->
-            # Stage 1 : which neofetch
-            # stage 2 : bash bash
-            # Stage 3 : ncurses readline ncurses readline
-            # Stage 4 : 
-            # DEPS="which neofetch bash bash ncurses readline ncurses readline"
-            # After deduplication
-            # DEPS="which neofetch bash ncurses readline"
-            # PACKAGES="readline ncurses bash neofetch which" ( DEPS copied to PACKAGES, then PACKAGES reversed)
-            while [ ! -z "$PACKAGEBUFFER" ]; do
-                for PACKAGE in ${PACKAGEBUFFER[@]}; do 
-                    if [ -f $VEILERDBPATH/sync/$PACKAGE/dependencies ]; then
-                        while read DEPENDENCY; do
-                            if [ ! -d "$VEILERDBPATH/local/$DEPENDENCY" ]; then 
-                                DEPS[$DEPCNTR]=$DEPENDENCY
-                                DEPSBUFFER[$DEPBUFCNTR]=$DEPENDENCY
-                                ((DEPCNTR++))
-                                ((DEPBUFCNTR++))
-                            fi
-                        done < "$VEILERDBPATH/sync/$PACKAGE/dependencies"
-                    fi
-                done
-                PACKAGEBUFFER=()
-                PACKAGEBUFFER=( ${DEPSBUFFER[$i]} )
-                DEPSBUFFER=()
-                DEPBUFCNTR=0
-            done    
-            PACKAGEBUFFER=( ${PACKAGES[@]} )
-            PACKAGEBUFFER+=( ${DEPS[@]} )
-            for((i=0; i < ${#PACKAGEBUFFER[@]}; i++)){
-                EXISTS=$(checkifexists ${PACKAGEBUFFER[$i]})
-                if [ $EXISTS == "no" ]; then
-                    VICTIMPACKAGES[$VICTCNTR]=${PACKAGEBUFFER[$i]}
-                    ((VICTCNTR++))
-                fi
-            }
-            BUFFER=${PACKAGEBUFFER[@]}
-            for PACKAGE in ${VICTIMPACKAGES[@]}; do
-                OCCURENCES=$(echo ${PACKAGEBUFFER[@]} | grep -ow "$PACKAGE" | wc -w)
-                ((OCCURENCES--))
-                for((i=0; i < $OCCURENCES; i++)){
-                    BUFFER=$(echo $BUFFER | sed "s@$PACKAGE@@1")
-                }
-            done
-            # Reverse the packages to build in correct order
-            PACKAGES=( $BUFFER )
-            PACKAGES=( $(printf "%s\n" ${PACKAGES[@]} | tac) )
-            set -- ${PACKAGES[@]}
-            veiler_stop_animation
-        fi
-        # -- End dependency calculating --
-        makepkgarray "$@"
+        resolvedeps "$@"
         echo -ne "\n${YELLOW}Packages to be installed ${GRAY}(${#PKGNAME[@]}): ${NC}"
         for((i=0; i < ${#PKGNAME[@]}; i++)){
-            if [ -d $VEILERDBPATH/local/"${PKGNAME[$i]}" -a -n "${PKGNAME[$i]}" ]; then
+            if [ -f $VEILERDBPATH/local/"${PKGNAME[$i]}"/info -a -n "${PKGNAME[$i]}" ]; then
                 LOCALPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' $VEILERDBPATH/local/"${PKGNAME[$i]}"/info)"
                 if [ "${PKGVERSION[$i]}" != "$LOCALPKGVERSION" ]; then
                     echo -ne "${WHITE}"${PKGNAME[$i]}" ${GRAY}("$LOCALPKGVERSION")${WHITE} -> "${PKGNAME[$i]}" ${GRAY}("${PKGVERSION[$i]}")${NC}   "
@@ -558,37 +582,69 @@ case $1 in
             echo
         fi
         log_info notice "Changing directory to $VEILERCACHEPATH..."
-        pushd $VEILERCACHEPATH &> /dev/null && clean &> /dev/null
-            getBuildTarballs
-            extractBuildTarballs
-            getSources 
-            verifyChecksums 
-            uninstallPackages
-        popd &> /dev/null
+        uninstallPackages
 	;;
 	strengthen)
-        log_info notice "This does not actually upgrade packages so far"
+        checkifroot
         log_info notice "It is advised to run ${BLUE}$0 ${YELLOW}sync${WHITE} before performing this operation."
         shift
         PACKAGES=( $(ls $VEILERDBPATH/local) )
         for PACKAGE in ${PACKAGES[@]}; do
-            if [ -f $VEILERDBPATH/local/$PACKAGE/info ]; then 
+            if [ -f $VEILERDBPATH/local/$PACKAGE/info -a -f $VEILERDBPATH/local/$PACKAGE/info ]; then 
                 source $VEILERDBPATH/local/$PACKAGE/info
-                LOCALPKGVERSIONS+=( "$MOONPKGVERSION" )
+                LOCALPKGVERSION=$MOONPKGVERSION
                 source $VEILERDBPATH/sync/$PACKAGE/info
-                SYNCPKGVERSIONS+=( "$MOONPKGVERSION" )
+                SYNCPKGVERSION=$MOONPKGVERSION
+                if [ $LOCALPKGVERSION != $SYNCPKGVERSION ]; then
+                    UPGRADEDPACKAGES+=( "$PACKAGE" )
+                    UPGRADEDPACKAGESLOCALVERSION+=( "$LOCALPKGVERSION" )
+                    UPGRADEDPACKAGESSYNCVERSION+=( "$SYNCPKGVERSION" )
+                fi
             else
                 log_warn "No valid information file could be found for the package ${BLUE}$PACKAGE"
             fi
         done
+        if [ ${#UPGRADEDPACKAGES[@]} -eq 0 ]; then
+            log_err "Nothing to upgrade. Exiting"
+        fi
+        resolvedeps ${UPGRADEDPACKAGES[@]}
         echo -en "${WHITE}\nPackages to be upgraded: "
-        for((i=0; i < ${#LOCALPKGVERSIONS[@]}; i++)){
-            if [ ${LOCALPKGVERSIONS[$i]} != ${SYNCPKGVERSIONS[$i]} ]; then
-                echo -e "${PACKAGE[$i]} ${GRAY}(${LOCALPKGVERSIONS})${WHITE} ${YELLOW}-> ${WHITE}${$PACKAGE[$i]} ${GRAY}(${SYNCPKGVERSIONS})${NC}   "
-            fi
-        }
+        for((i=0; i < ${#UPGRADEDPACKAGES[@]}; i++)){
+            echo -ne "${WHITE}${UPGRADEDPACKAGES[$i]} ${GRAY}(${UPGRADEDPACKAGESLOCALVERSION[$i]})${YELLOW} -> ${WHITE}${UPGRADEDPACKAGES[$i]} ${GRAY}(${UPGRADEDPACKAGESSYNCVERSION[$i]})${NC}   "
+        }; echo
+        echo -en "${WHITE}\nNew additional dependencies to be installed: ${NC}"
+        if [ ${#ADDITIONALDEPS[@]} -ne 0 ]; then
+            for PACKAGE in ${ADDITIONALDEPS[@]}; do
+                if [ -f $VEILERDBPATH/sync/$PACKAGE/info ]; then
+                    source $VEILERDBPATH/sync/$PACKAGE/info
+                    printf "${WHITE}${MOONPKGNAME} ${GRAY}(${MOONPKGVERSION})   "
+                fi
+            done; echo -e "${NC}\n"
+        else
+            echo -e "${BLUE}(none)${NC}\n"
+        fi
+        (
+            for((i=0; i < ${#PKGNAME[@]}; i++)){
+                SIZEBUFFER=0
+                source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
+                SIZEBUFFER=$((SIZEBUFFER + INSTALLEDSIZE))
+                source $VEILERDBPATH/local/${PKGNAME[$i]}/info
+                SIZEBUFFER=$((SIZEBUFFER - INSTALLEDSIZE))
+                TOTALUPGRADESIZE=$((TOTALUPGRADESIZE + SIZEBUFFER))
+            }
+            echo -e "${DARKBLUE}***${BLUE} Total upgrade size:${WHITE} $TOTALUPGRADESIZE${NC}"
+            for((i=0; i < ${#PKGNAME[@]}; i++)){
+                SIZEBUFFER=0
+                source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
+                SIZEBUFFER=$((SIZEBUFFER + INSTALLEDSIZEWODOC))
+                source $VEILERDBPATH/local/${PKGNAME[$i]}/info
+                SIZEBUFFER=$((SIZEBUFFER - INSTALLEDSIZEWODOC))
+                SIZEBUFFER=$((TOTALUPGRADESIZEWODOC + SIZEBUFFER))
+            }
+            echo -e "${DARKBLUE}***${BLUE} Total upgrade size ( without documentation ):${WHITE} $TOTALUPGRADESIZEWODOC${NC}"
+        )
         if [ $VEILERASK -eq 1 ]; then
-            echo -ne "\n\nProceed with the installation?[y/n]: "
+            echo -ne "\n${BLUE}||| ${WHITE}Proceed with the upgrade?[y/n]: ${NC}"
             read -n 1
             if [ $REPLY == "y" -o $REPLY == "Y" ]; then
                 true; echo 
@@ -596,6 +652,19 @@ case $1 in
                echo -e "\n${BLUE}Goodbye!${NC}"; exit 0
             fi
         fi
+        clean
+        log_info notice "Changing directory to $VEILERCACHEPATH..."
+        pushd $VEILERCACHEPATH &> /dev/null 
+            getBuildTarballs 
+            extractBuildTarballs 
+            getSources 
+            verifyChecksums 
+            buildPackages
+            if [ $VEILERONLYBUILD -eq 1 ]; then
+                log_info notice "The package manager has finished building the packages, but has not installed them. Goodluck with whatever you are doing!"
+                log_info imp "The build directories can be found at $VEILERCACHEPATH"
+            fi
+        popd &> /dev/null
 	;;
     info)
         PACKAGES=()
@@ -655,7 +724,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}development version 1.6.0-rc1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.7.0${NC}"
     ;;
     search)
         shift
@@ -669,7 +738,7 @@ case $1 in
         if [ $VEILERSKIPDESC -eq 1 ]; then
             COUNT=0
             for((i=1; i <= $#; i++)){
-                PACKAGES=$(ls -d $VEILERDBPATH/sync/*${!i}* 2&> /dev/null)
+                PACKAGES=$(find $VEILERDBPATH/sync -type d -name "*${!i}*")
                 for PACKAGE in $PACKAGES; do
                     if [ -f $PACKAGE/info ]; then
                         source $PACKAGE/info 
@@ -791,7 +860,7 @@ case $1 in
     ;;
     clearcache)
         if [ -n "$VEILERCACHEPATH" -a -d "$VEILERCACHEPATH" ]; then
-            rm -rvf $VEILERCACHEPATH/*
+            rm -rvf "$VEILERCACHEPATH"/*.tar.*
         fi
         log_info imp "Always try to not run this operation as root user."
     ;;
