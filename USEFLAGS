@@ -20,7 +20,9 @@ Useflags change how the package is built and installed, or it enables you to use
 -MULTILIB
 -LZMA
 -READLINE
+-HISTORY
 --- ENABLE  FLAGS ---
++EDITLINE
 +GNULD
 +DEBUG
 +DOC-DOXYGEN

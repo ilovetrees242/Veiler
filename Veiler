@@ -17,9 +17,12 @@ VEILERMBE=0
 VEILERDEST="/"
 VEILERCACHEPATH="/var/cache/Veiler/"
 VEILERDBPATH="/var/db/Veiler"
+VEILERCONFIGPATH="/etc/Veiler/veiler.conf"
 PROCESSID=""
-PKGREPO="https://ilovetrees242.github.io/DevHelp/Website/Packages"
+PKGREPO="https://ilovetrees242.github.io/Supplements/Website/Packages"
 USEFLAGS=""
+GLOBALUSEFLAGS=()
+LOCALUSEFLAGS=()
 
 # Colors
 DARKBLUE='\033[0;34m'
@@ -60,7 +63,7 @@ TOTALUPGRADESIZEWODOC=0
 WODOCINSTSIZE=0
 SIZEBUFFER=0
 
-. /etc/veiler.conf 
+. $VEILERCONFIGPATH
 
 trap 'veiler_stop_animation' TERM 
 trap 'echo -e "\n${YELLOW}Interrupted${NC}"; veiler_stop_animation; exit 1' INT
@@ -181,26 +184,41 @@ verifyChecksums(){
 }
 buildPackages(){
     export MAKEFLAGS="$MAKEFLAGS"
+    USEFLAGS=( ${USEFLAGS[@]} )
     log_info imp "Building the package(s)..."
+    GLOBALUSEFLAGS=( ${USEFLAGS[@]} )
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build or install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Building ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null
-            source ./MOONBUILD build
+            (
+                if [ -s /etc/Veiler/package.use ]; then
+                    while read pkg; do
+                        if [ $(echo $pkg | sed 's/->.*//; s/^s//g') == "${PKGNAME[$i]}" ]; then
+                            USEFLAGS=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
+                            USEFLAGS=( $USEFLAGS )
+                        fi
+                    done < /etc/Veiler/package.use
+                fi
+                source ./MOONBUILD build
+                USEFLAGS=( ${GLOBALUSEFLAGS[@]} )
+            )
             if [ $VEILERONLYBUILD -eq 0 ]; then 
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
                 source ./MOONBUILD install
                 cp -r "$VEILERDBPATH/sync/${PKGNAME[$i]}" "$VEILERDBPATH/local"
                 cd "${PKGNAME[$i]}-${PKGVERSION[$i]}"/DEST
                 find . ! -type d | sed 's/^.//' > $VEILERDBPATH/local/${PKGNAME[$i]}/files 
-                if [ $VEILERDOC -eq 0 ]; then
-                    while read file; do
-                        if [ $VEILERQUIET -eq 1 ]; then
-                            rm -f DEST/$file
-                        else
-                            rm -fv DEST/$file
-                        fi
-                    done < $VEILERDBPATH/sync/${PKGNAME[$i]}/docfiles
+                if [ -s $VEILERDBPATH/sync/${PKGNAME[$i]}/docfiles ]; then
+                    if [ $VEILERDOC -eq 0 ]; then
+                        while read file; do
+                            if [ $VEILERQUIET -eq 1 ]; then
+                                rm -f DEST/$file
+                            else
+                                rm -fv DEST/$file
+                            fi
+                        done < $VEILERDBPATH/sync/${PKGNAME[$i]}/docfiles
+                    fi
                 fi
                 if [ ! -d $VEILERDEST ]; then mkdir -p $VEILERDEST; fi
                 if [ $VEILERQUIET -eq 1 ]; then
@@ -218,13 +236,15 @@ uninstallPackages(){
     log_info imp "Uninstalling the package(s)"
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Uninstalling ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-        while read file; do
-            if [ $VEILERQUIET -eq 1 ]; then
-                rm -f "$file"
-            else
-                rm -fv "$file"
-            fi
-        done < $VEILERDBPATH/local/${PKGNAME[$i]}/files
+        if [ -f $VEILERDBPATH/local/${PKGNAME[$i]} ]; then
+            while read file; do
+                if [ $VEILERQUIET -eq 1 ]; then
+                    rm -f "$file"
+                else
+                    rm -fv "$file"
+                fi
+            done < $VEILERDBPATH/local/${PKGNAME[$i]}/files
+        fi
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Successfully uninstalled ${DARKBLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
     }
     trap - ERR
@@ -233,20 +253,30 @@ resolvedeps(){
     # --- Start dependency calculating ---
     if [ $VEILERSKIPDEPS -eq 0 ]; then
         second_animation "$(log_info imp "Calculating dependencies")"
-        PACKAGES=()
+        PACKAGES=( "$@" )
         USEFLAGS=( $USEFLAGS )
-        for PACKAGE in "$@"; do
-            PACKAGES+=( "$PACKAGE" )
-            if [ -n ${USEFLAGS[0]} ]; then
-                for FLAG in ${USEFLAGS[@]}; do
-                    if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
-                        for((i=1; i <= $(wc -l "$VEILERDBPATH/sync/$PACKAGE/optdependencies" | sed 's/ .*//'); i++)){
-                            if [ "$FLAG" == "$(sed -n "$i s@ .*@@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies")" ]; then
-                                PACKAGES+=( $(sed -n "$i s@.* @@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies") )
+        for PACKAGE in ${PACKAGES[@]}; do
+            if [ ${#USEFLAGS[@]} -ne 0 ]; then
+                (
+                    if [ -s /etc/Veiler/package.use ]; then
+                        while read pkg; do
+                            if [ $(echo $pkg | sed 's/->.*//; s/\s//g') == "$PACKAGE" ]; then
+                                USEFLAGS=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
+                                USEFLAGS=( $USEFLAGS )
                             fi
-                        }
+                        done < /etc/Veiler/package.use
                     fi
-                done
+                    for FLAG in ${USEFLAGS[@]}; do
+                        if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
+                            for((i=1; i <= $(wc -l "$VEILERDBPATH/sync/$PACKAGE/optdependencies" | sed 's/ .*//'); i++)){
+                                if [ "$FLAG" == "$(sed -n "$i s@ .*@@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies")" ]; then
+                                    PACKAGES+=( $(sed -n "$i s@.* @@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies") )
+                                fi
+                            }
+                        fi
+                    done
+                    USEFLAGS=$( ${GLOBALUSEFLAGS[@]} )
+                )
             fi
         done
         PACKAGEBUFFER=( ${PACKAGES[@]} )
@@ -562,10 +592,11 @@ case $1 in
         done
         if [ $VEILERMBE -eq 1 ]; then
             ((TOTALUNINSTSIZE=TOTALUNINSTSIZE/1024/1024))
+            echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC}MiB"
         else
             ((TOTALUNINSTSIZE=TOTALUNINSTSIZE/1024))
+            echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC}KiB"
         fi
-        echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC}"
         echo -ne "\n${YELLOW}Packages to be uninstalled ${GRAY}(${#PKGNAME[@]}): ${NC}"
         for((i=0; i < ${#PKGNAME[@]}; i++)){
             echo -ne "${WHITE}${PKGNAME[$i]} ${GRAY}(${PKGVERSION[$i]})${NC}   "
@@ -608,7 +639,7 @@ case $1 in
             log_err "Nothing to upgrade. Exiting"
         fi
         resolvedeps ${UPGRADEDPACKAGES[@]}
-        echo -en "${WHITE}\nPackages to be upgraded: "
+        echo -en "${WHITE}\nPackages to be upgraded ${GRAY}(${#UPRGADEDPACKAGES[@]}): "
         for((i=0; i < ${#UPGRADEDPACKAGES[@]}; i++)){
             echo -ne "${WHITE}${UPGRADEDPACKAGES[$i]} ${GRAY}(${UPGRADEDPACKAGESLOCALVERSION[$i]})${YELLOW} -> ${WHITE}${UPGRADEDPACKAGES[$i]} ${GRAY}(${UPGRADEDPACKAGESSYNCVERSION[$i]})${NC}   "
         }; echo
