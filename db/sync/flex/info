@@ -1,0 +1,10 @@
+# Flex ( Fast lexical anyalyser generator )
+MOONPKGNAME="flex"
+MOONPKGVERSION="2.6.4"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://github.com/westes/flex/releases/download/v2.6.4"
+DESC="Flex package contains utility for generating programs that recognise patterns in text"
+INSTALLEDSIZE=1674965
+WODOCINSTALLEDSIZE=1239998
+DOWNLOADSIZE=1419096
+REQDSKSPC=15085297

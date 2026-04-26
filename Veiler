@@ -339,6 +339,7 @@ resolvedeps(){
         veiler_stop_animation
         makepkgarray ${PACKAGES[@]}
     else
+        makepkgarray "$@"
         return
     fi
     # --- End dependency calculating ---
@@ -755,7 +756,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.7.0${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.7.1${NC}"
     ;;
     search)
         shift

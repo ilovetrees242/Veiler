@@ -9,5 +9,13 @@ This was made for my use mostly, its still under development so some packages mi
 * Report any found bugs in issues
 * The dependency resolving algorithm lives on hopes and dreams
 
+# Required dependencies
+The following dependencies are required in order to use the package manager ( usually they should be available on all systems )
+* Wget ( For downloading packages )
+* Findutils ( For cleaning directories and writing installed files )
+* Coreutils ( For doing system actions )
+* Sed ( For doing things bash cannot do )
+* Grep ( Same as sed ) 
+
 # Documentation
 Information related to configuration, installation or usage can be found at https://ilovetrees242.github.io/DevHelp/Website/Veiler.html
