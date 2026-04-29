@@ -208,6 +208,7 @@ buildPackages(){
                 source ./MOONBUILD install
                 cp -r "$VEILERDBPATH/sync/${PKGNAME[$i]}" "$VEILERDBPATH/local"
                 cd "${PKGNAME[$i]}-${PKGVERSION[$i]}"/DEST
+                if [ ! -d $VEILERDBPATH/local/${PKGNAME[$i]} ]; then mkdir $VEILERDBPATH/local/${PKGNAME[$i]}; fi
                 find . ! -type d | sed 's/^.//' > $VEILERDBPATH/local/${PKGNAME[$i]}/files 
                 if [ -s $VEILERDBPATH/sync/${PKGNAME[$i]}/docfiles ]; then
                     if [ $VEILERDOC -eq 0 ]; then
@@ -222,21 +223,22 @@ buildPackages(){
                 fi
                 if [ ! -d $VEILERDEST ]; then mkdir -p $VEILERDEST; fi
                 if [ $VEILERQUIET -eq 1 ]; then
-                    cp -frav ./* $VEILERDEST
-                else
                     cp -fra ./* $VEILERDEST
+                else
+                    cp -frva ./* $VEILERDEST
                 fi
             fi
         popd &> /dev/null
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Completed the build${DARKBLUE} >>> ${WHITE}${PKGNAME[$i]}${NC}"
     }
+    unset MAKEFLAGS
     trap - ERR
 }
 uninstallPackages(){
     log_info imp "Uninstalling the package(s)"
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Uninstalling ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-        if [ -f $VEILERDBPATH/local/${PKGNAME[$i]} ]; then
+        if [ -f $VEILERDBPATH/local/${PKGNAME[$i]}/files ]; then
             while read file; do
                 if [ $VEILERQUIET -eq 1 ]; then
                     rm -f "$file"
@@ -245,6 +247,7 @@ uninstallPackages(){
                 fi
             done < $VEILERDBPATH/local/${PKGNAME[$i]}/files
         fi
+        rm -rf "$VEILERDBPATH/local/${PKGNAME[$i]}"
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Successfully uninstalled ${DARKBLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
     }
     trap - ERR
@@ -505,55 +508,57 @@ case $1 in
         for PACKAGE in ${PKGNAME[@]}; do
             SPACEBUFFER=$(sed -n 's/^REQDSKSPC=//p' $VEILERDBPATH/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
-            ((TOTALDSR+=SPACEBUFFER))
-        done
-        if [ $VEILERMBE -eq 1 ]; then
-            ((TOTALDSR=TOTALDSR/1024/1024))
-            echo -e "${DARKBLUE}*** ${BLUE}Total disk space required: ${WHITE}"$TOTALDSR"MiB${NC}"
-        else
-            ((TOTALDSR/=1024))
-            echo -e "${DARKBLUE}*** ${BLUE}Total disk space required: ${WHITE}"$TOTALDSR"KiB${NC}"
-        fi
-        for PACKAGE in ${PKGNAME[@]}; do
-            SPACEBUFFER=$(sed -n 's/^DOWNLOADSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
-            SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
-            ((TOTALDOWNLOADSIZE+=SPACEBUFFER))
-        done
-        if [ $VEILERMBE -eq 1 ]; then
-            ((TOTALDOWNLOADSIZE=TOTALDOWNLOADSIZE/1024/1024))
-            echo -e "${DARKBLUE}*** ${BLUE}Total download size: ${WHITE}"$TOTALDOWNLOADSIZE"MiB${NC}"
-        else
-            ((TOTALDOWNLOADSIZE/=1024))
-            echo -e "${DARKBLUE}*** ${BLUE}Total download size: ${WHITE}"$TOTALDOWNLOADSIZE"KiB${NC}"
-        fi
-        for PACKAGE in ${PKGNAME[@]}; do
+	        ((TOTALDSR+=SPACEBUFFER))
+	        SPACEBUFFER=$(sed -n 's/^DOWNLOADSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
+	        SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
+	        ((TOTALDOWNLOADSIZE+=SPACEBUFFER))
             SPACEBUFFER=$(sed -n 's/^INSTALLEDSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
+	        SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
+	        ((TOTALINSTSIZE+=SPACEBUFFER))
+	        SPACEBUFFER=$(sed -n 's/^WODOCINSTALLEDSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
-            ((TOTALINSTSIZE+=SPACEBUFFER))
-        done
-        if [ $VEILERMBE -eq 1 ]; then
-            ((TOTALINSTSIZE=TOTALINSTSIZE/1024/1024))
-            echo -e "${DARKBLUE}*** ${BLUE}Total installed size: ${WHITE}"$TOTALINSTSIZE"MiB${NC}"
+	    ((WODOCINSTSIZE+=SPACEBUFFER))
+	    done
+        AVAILSPACE=$(df --output=avail | sed -n '2p')
+        AVAILSPACE=$((AVAILSPACE*1024))
+        if [ $VEILERDOC -eq 1 ]; then
+            if [ $AVAILSPACE -le $((TOTALINSTSIZE+TOTALDSR)) ]; then
+                echo -e "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+                echo -e "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((TOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
+                echo -e "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+                exit 1
+            fi
         else
-            ((TOTALINSTSIZE/=1024))
-            echo -e "${DARKBLUE}*** ${BLUE}Total installed size: ${WHITE}"$TOTALINSTSIZE"KiB${NC}"
+            if [ $AVAILSPACE -le $((WODOCTOTALINSTSIZE+TOTALDSR)) ]; then
+                echo -e "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+                echo -e "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((WODOCTOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
+                echo -e "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+                exit 1
+            fi
         fi
-        for PACKAGE in ${PKGNAME[@]}; do
-            SPACEBUFFER=$(sed -n 's/^WODOCINSTALLEDSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
-            SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
-            ((WODOCINSTSIZE+=SPACEBUFFER))
-        done
-        if [ $VEILERMBE -eq 1 ]; then 
-            ((WODOCINSTSIZE=WODOCINSTSIZE/1024/1024))
-            echo -e "${DARKBLUE}*** ${BLUE}Total installed size ( without documentation ): ${WHITE}"$WODOCINSTSIZE"MiB${NC}"
-        else
+        if [ $VEILERMBE -eq 1 ]; then
+	        ((TOTALDSR=TOTALDSR/1024/1024))
+	        echo -e "${DARKBLUE}*** ${BLUE}Total disk space required: ${WHITE}"$TOTALDSR" MiB${NC}"
+	        ((TOTALDOWNLOADSIZE=TOTALDOWNLOADSIZE/1024/1024))
+            echo -e "${DARKBLUE}*** ${BLUE}Total download size: ${WHITE}"$TOTALDOWNLOADSIZE" MiB${NC}"
+	        ((TOTALINSTSIZE=TOTALINSTSIZE/1024/1024))
+	        echo -e "${DARKBLUE}*** ${BLUE}Total installed size: ${WHITE}"$TOTALINSTSIZE" MiB${NC}"
+	        ((WODOCINSTSIZE=WODOCINSTSIZE/1024/1024))
+            echo -e "${DARKBLUE}*** ${BLUE}Total installed size ( without documentation ): ${WHITE}"$WODOCINSTSIZE" MiB${NC}"
+	    else
+	        ((TOTALDSR/=1024))
+            echo -e "${DARKBLUE}*** ${BLUE}Total disk space required: ${WHITE}"$TOTALDSR" KiB${NC}"
+            ((TOTALDOWNLOADSIZE/=1024))
+	        echo -e "${DARKBLUE}*** ${BLUE}Total download size: ${WHITE}"$TOTALDOWNLOADSIZE" KiB${NC}"
+	        ((TOTALINSTSIZE/=1024))
+            echo -e "${DARKBLUE}*** ${BLUE}Total installed size: ${WHITE}"$TOTALINSTSIZE" KiB${NC}"
             ((WODOCINSTSIZE/=1024))
-            echo -e "${DARKBLUE}*** ${BLUE}Total installed size ( without documentation ): ${WHITE}"$WODOCINSTSIZE"KiB${NC}"
-        fi 
+	        echo -e "${DARKBLUE}*** ${BLUE}Total installed size ( without documentation ): ${WHITE}"$WODOCINSTSIZE" KiB${NC}"
+	    fi
         if [ "$VEILERASK" -eq 1 ]; then
             echo -ne "\n${YELLOW}||| ${WHITE}Proceed with the installation?[y/n]: "
             read -n 1
-            if [ "$REPLY" == "y" ]; then
+            if [ "$REPLY" == "y" -o "$REPLY" == "yes" -o "$REPLY" == "Y" ]; then
                 true; echo -e "${NC}"
             else
                 echo -e "\n${WHITE}Goodbye!${NC}"; exit 0
@@ -593,10 +598,10 @@ case $1 in
         done
         if [ $VEILERMBE -eq 1 ]; then
             ((TOTALUNINSTSIZE=TOTALUNINSTSIZE/1024/1024))
-            echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC}MiB"
+            echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC} MiB"
         else
             ((TOTALUNINSTSIZE=TOTALUNINSTSIZE/1024))
-            echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC}KiB"
+            echo -e "\n${DARKBLUE}***${BLUE} Total uninstalled size: ${WHITE}$TOTALUNINSTSIZE${NC} KiB"
         fi
         echo -ne "\n${YELLOW}Packages to be uninstalled ${GRAY}(${#PKGNAME[@]}): ${NC}"
         for((i=0; i < ${#PKGNAME[@]}; i++)){
@@ -605,7 +610,7 @@ case $1 in
         if [ $VEILERASK -eq 1 ]; then
             echo -ne "\n\n${BLUE}||| ${WHITE}Proceed with the uninstallation?[y/n]: ${NC}"
             read -n 1
-            if [ $REPLY == "y" ]; then
+            if [ $REPLY == "y" -o $REPLY == "yes" -o $REPLY == "Y" ]; then
                 true; echo -e "${NC}"
             else
                 echo -e "\n${WHITE}Goodbye!${NC}"; exit 0
@@ -620,12 +625,12 @@ case $1 in
         checkifroot
         log_info notice "It is advised to run ${BLUE}$0 ${YELLOW}sync${WHITE} before performing this operation."
         shift
-        PACKAGES=( $(ls $VEILERDBPATH/local) )
+        PACKAGES=( $(find $VEILERDBPATH/local -type d | sed '1d') )
         for PACKAGE in ${PACKAGES[@]}; do
-            if [ -f $VEILERDBPATH/local/$PACKAGE/info -a -f $VEILERDBPATH/local/$PACKAGE/info ]; then 
-                source $VEILERDBPATH/local/$PACKAGE/info
+            if [ -f $PACKAGE/info -a -f $PACKAGE/info ]; then 
+                source $PACKAGE/info
                 LOCALPKGVERSION=$MOONPKGVERSION
-                source $VEILERDBPATH/sync/$PACKAGE/info
+                source $PACKAGE/info
                 SYNCPKGVERSION=$MOONPKGVERSION
                 if [ $LOCALPKGVERSION != $SYNCPKGVERSION ]; then
                     UPGRADEDPACKAGES+=( "$PACKAGE" )
@@ -633,7 +638,7 @@ case $1 in
                     UPGRADEDPACKAGESSYNCVERSION+=( "$SYNCPKGVERSION" )
                 fi
             else
-                log_warn "No valid information file could be found for the package ${BLUE}$PACKAGE"
+                log_warn "No valid information file could be found for the package ${BLUE}$(echo $PACKAGE | sed 's/.*local\//')"
             fi
         done
         if [ ${#UPGRADEDPACKAGES[@]} -eq 0 ]; then
@@ -655,30 +660,40 @@ case $1 in
         else
             echo -e "${BLUE}(none)${NC}\n"
         fi
-        (
-            for((i=0; i < ${#PKGNAME[@]}; i++)){
-                SIZEBUFFER=0
-                source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
-                SIZEBUFFER=$((SIZEBUFFER + INSTALLEDSIZE))
-                source $VEILERDBPATH/local/${PKGNAME[$i]}/info
-                SIZEBUFFER=$((SIZEBUFFER - INSTALLEDSIZE))
-                TOTALUPGRADESIZE=$((TOTALUPGRADESIZE + SIZEBUFFER))
-            }
-            echo -e "${DARKBLUE}***${BLUE} Total upgrade size:${WHITE} $TOTALUPGRADESIZE${NC}"
-            for((i=0; i < ${#PKGNAME[@]}; i++)){
-                SIZEBUFFER=0
-                source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
-                SIZEBUFFER=$((SIZEBUFFER + INSTALLEDSIZEWODOC))
-                source $VEILERDBPATH/local/${PKGNAME[$i]}/info
-                SIZEBUFFER=$((SIZEBUFFER - INSTALLEDSIZEWODOC))
-                SIZEBUFFER=$((TOTALUPGRADESIZEWODOC + SIZEBUFFER))
-            }
-            echo -e "${DARKBLUE}***${BLUE} Total upgrade size ( without documentation ):${WHITE} $TOTALUPGRADESIZEWODOC${NC}"
-        )
+        for((i=0; i < ${#PKGNAME[@]}; i++)){
+            SIZEBUFFER=0
+            source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
+            SIZEBUFFER=$((SIZEBUFFER + INSTALLEDSIZE))
+            source $VEILERDBPATH/local/${PKGNAME[$i]}/info
+            SIZEBUFFER=$((SIZEBUFFER - INSTALLEDSIZE))
+            TOTALUPGRADESIZE=$SIZEBUFFER
+            SIZEBUFFER=0
+            source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
+            SIZEBUFFER=$((SIZEBUFFER + INSTALLEDSIZEWODOC))
+            source $VEILERDBPATH/local/${PKGNAME[$i]}/info
+            SIZEBUFFER=$((SIZEBUFFER - INSTALLEDSIZEWODOC))
+            TOTALUPGRADESIZEWODOC=$SIZEBUFFER
+            SIZEBUFFER=0
+        }
+        AVAILSPACE=$(df --output=avail | sed -n '2p')
+        if [ $AVAILSPACE -le $((TOTALUPGRADESIZE+TOTALDSR)) ]; then
+            echo -e "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+            echo -e "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $((TOTALUPGRADESIZE/1024/1024)) MiB <${NC} "
+            echo -e "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+            exit 1
+        fi
+        if [ $AVAILSPACE -le $((TOTALUPGRADESIZEWODOC+TOTALDSR)) ]; then
+            echo -e "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+            echo -e "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $((TOTALUPGRADESIZEWODOC/1024/1024)) MiB <${NC} "
+            echo -e "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+            exit 1
+        fi
+        echo -e "${DARKBLUE}***${BLUE} Total upgrade size:${WHITE} $TOTALUPGRADESIZE${NC}"
+        echo -e "${DARKBLUE}***${BLUE} Total upgrade size ( without documentation ):${WHITE} $TOTALUPGRADESIZEWODOC${NC}"
         if [ $VEILERASK -eq 1 ]; then
             echo -ne "\n${BLUE}||| ${WHITE}Proceed with the upgrade?[y/n]: ${NC}"
             read -n 1
-            if [ $REPLY == "y" -o $REPLY == "Y" ]; then
+            if [ $REPLY == "y" -o $REPLY == "Y" -o $REPLY == "yes" ]; then
                 true; echo 
             else
                echo -e "\n${BLUE}Goodbye!${NC}"; exit 0
@@ -756,7 +771,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.7.1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.8.1${NC}"
     ;;
     search)
         shift
@@ -827,7 +842,7 @@ case $1 in
         fi
     ;;
     sync)
-        log_info imp "${YELLOW}||${WHITE} Syncing package repo"
+        log_info imp "${YELLOW}|||${WHITE} Syncing package repo"
         if [ -d /usr/lib/Veiler ]; then
             pushd /usr/lib/Veiler &> /dev/null
             trap 'log_err "Could not sync repo!"' ERR
@@ -866,7 +881,7 @@ case $1 in
         for((i=1; i <= $#; i++)){
             PACKAGES[$((i-1))]=$(find $VEILERCACHEPATH -name "build-"${!i}"-*.*")
         }
-        if [ -z "${PACKAGES[@]}" ]; then
+        if [ ${#PACKAGES[@]} -eq 0 ]; then
             log_err "No occurences of the following packages could be found"
         fi
         log_info notice "The following occurences were found: "
