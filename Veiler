@@ -238,6 +238,7 @@ uninstallPackages(){
     log_info imp "Uninstalling the package(s)"
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Uninstalling ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
+        if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1)/${#PKGNAME[@]}))${WHITE} Failed to uninstall the package ${RED}>>>${WHITE} ${PKGNAME[$i]}"' ERR; fi
         if [ -f $VEILERDBPATH/local/${PKGNAME[$i]}/files ]; then
             while read file; do
                 if [ $VEILERQUIET -eq 1 ]; then
@@ -258,24 +259,25 @@ resolvedeps(){
         second_animation "$(log_info imp "Calculating dependencies")"
         PACKAGES=( "$@" )
         USEFLAGS=( $USEFLAGS )
+        GLOBALUSEFLAGS=( ${USEFLAGS[@]} )
         for PACKAGE in ${PACKAGES[@]}; do
-            if [ ${#USEFLAGS[@]} -ne 0 ]; then
+            if [ ${#GLOBALUSEFLAGS[@]} -gt 0 -o -s /etc/Veiler/package.use ]; then
                 (
                     if [ -s /etc/Veiler/package.use ]; then
                         while read pkg; do
                             if [ $(echo $pkg | sed 's/->.*//; s/\s//g') == "$PACKAGE" ]; then
-                                USEFLAGS=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
-                                USEFLAGS=( $USEFLAGS )
+                                BUFFER=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
+                                USEFLAGS=$( $BUFFER )
                             fi
                         done < /etc/Veiler/package.use
                     fi
                     for FLAG in ${USEFLAGS[@]}; do
                         if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
-                            for((i=1; i <= $(wc -l "$VEILERDBPATH/sync/$PACKAGE/optdependencies" | sed 's/ .*//'); i++)){
-                                if [ "$FLAG" == "$(sed -n "$i s@ .*@@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies")" ]; then
-                                    PACKAGES+=( $(sed -n "$i s@.* @@p" "$VEILERDBPATH/sync/$PACKAGE/optdependencies") )
+                            while read pkg_line; do
+                                if [ "$FLAG" == "$(echo $pkg_line | sed 's/ .*//')" ]; then
+                                    PACKAGES+=( $(echo $pkg_line | sed 's/.* //' ) )
                                 fi
-                            }
+                            done < "$VEILERDBPATH/sync/$PACKAGE/optdependencies"
                         fi
                     done
                     USEFLAGS=$( ${GLOBALUSEFLAGS[@]} )
@@ -771,7 +773,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.8.1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.8.2${NC}"
     ;;
     search)
         shift
@@ -804,7 +806,7 @@ case $1 in
                 done
             }   
             for((i=0; i < ${#FOUNDPACKAGES[@]}; i++)){
-                echo -ne "${WHITE}${FOUNDPACKAGES[$i]}${NC}"
+                echo -ne "${BLUE}${FOUNDPACKAGES[$i]}${NC}"
                 echo -ne "${GRAY}(${FOUNDPACKAGESVERSION[$i]})${NC}"
                 echo -e "${FOUNDPACKAGESINSTALLED[$i]}"
                 echo -e "\t${WHITE}${FOUNDPACKAGESDESC[$i]}${NC}"
@@ -833,11 +835,20 @@ case $1 in
                     fi
                 done
             }
+            SKIP=0
+            DONEPACKAGES=()
             for((i=0; i < ${#FOUNDPACKAGES[@]} - 1; i++)){
-                echo -ne "${WHITE}${FOUNDPACKAGES[$i]} ${NC}"
+                for((j=0; j < ${#DONEPACKAGES[@]}; j++)){
+                    if [ "${DONEPACKAGES[$j]}" == "${FOUNDPACKAGES[$i]}" ]; then
+                        SKIP=1
+                    fi
+                }
+                if [ $SKIP -eq 1 ]; then SKIP=0; continue; fi
+                echo -ne "${BLUE}${FOUNDPACKAGES[$i]} ${NC}"
                 echo -ne "${GRAY}(${FOUNDPACKAGESVERSION[$i]})${NC}"
                 echo -e "${FOUNDPACKAGESINSTALLED[$i]}"
                 echo -e "\t${WHITE}${FOUNDPACKAGESDESC[$i]}${NC}"
+                DONEPACKAGES+=( ${FOUNDPACKAGES[$i]} )
             } | more
         fi
     ;;
