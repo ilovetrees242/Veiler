@@ -1,4 +1,39 @@
 #!/bin/bash
+VEILERCUSTOMCONF=0
+while [ $# -gt 0 ]; do
+    case $1 in 
+        --*)
+            OPTIONS+=($1)
+            case $1 in
+                --with-dest)
+                    if [ -n $2 ]; then
+                        OPTIONS+=($2); shift
+                    else
+                        log_err "The option ${GRAY}--with-dest${NC} requires an argument!"
+                    fi
+                ;;
+                --config)
+                    if [[ -n $2 && $(echo $2 | cut -c1) = "/" ]]; then
+                        OPTIONS+=($2); shift
+                    else
+                        log_err "The option ${GRAY}--with-dest${NC} requires a valid argument! ${GRAY}( relative paths are not valid )"
+                    fi
+                ;;
+            esac
+        ;;
+        *)
+            ARGUMENTS+=($1)
+        ;;
+    esac
+    shift
+done
+for((i=0; i < ${#OPTIONS[@]}; i++)){
+    if [ "${OPTIONS[$i]}" == "--config" ]; then
+        VEILERCONFIGPATH=${OPTIONS[$((i+1))]}
+        VEILERCUSTOMCONF=1
+        . $VEILERCONFIGPATH
+    fi
+}
 # Main package manager related variables
 declare -a OPTIONS PACKAGES
 VEILERTESTS=0
@@ -24,6 +59,8 @@ USEFLAGS=""
 GLOBALUSEFLAGS=()
 LOCALUSEFLAGS=()
 
+if [ $VEILERCUSTOMCONF -eq 0 ]; then . $VEILERCONFIGPATH; fi
+
 # Colors
 DARKBLUE='\033[0;34m'
 BLUE='\033[1;34m'
@@ -42,6 +79,8 @@ PACKAGEBUFFER=""
 VICTIMPACKAGES=""
 DEPSBUFFER=()
 DEPS=()
+PKGNAME=()
+PKGVERSION=()
 VICTCNTR=0
 DEPCNTR=0
 DEPBUFCNTR=0
@@ -63,8 +102,14 @@ TOTALUPGRADESIZEWODOC=0
 WODOCINSTSIZE=0
 SIZEBUFFER=0
 
-. $VEILERCONFIGPATH
 
+if [ $(echo $VEILERDEST | cut -c1) != "/" ]; then
+    log_err "DEST path must be an absolute path."
+elif [ $(echo $VEILERCACHEPATH | cut -c1) != "/" ]; then
+    log_err "Cache path must be absolute."
+elif [ $(echo $VEILERDBPATH | cut -c1) != "/" ]; then
+    log_err "DB path must be absolute."
+fi
 trap 'veiler_stop_animation' TERM 
 trap 'echo -e "\n${YELLOW}Interrupted${NC}"; veiler_stop_animation; exit 1' INT
 
@@ -163,7 +208,7 @@ extractBuildTarballs(){
     }
 }
 getSources(){
-    log_info imp "Getting source(s)..."
+    log_info imp "Getting source(s) [ ${YELLOW}${#PKGNAME[@]}${WHITE} ]..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
             source ./MOONBUILD getpkg || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to download the source for ${PKGNAME[$i]}"
@@ -177,9 +222,9 @@ verifyChecksums(){
             pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
                 sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for package ${RED}>>>${WHITE} ${PKGNAME[$i]}"
             popd &> /dev/null
+            sleep 0.1
         fi
         tar -cf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the package" 
-        sleep 0.1
     }; echo
 }
 buildPackages(){
@@ -267,7 +312,7 @@ resolvedeps(){
                         while read pkg; do
                             if [ $(echo $pkg | sed 's/->.*//; s/\s//g') == "$PACKAGE" ]; then
                                 BUFFER=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
-                                USEFLAGS=$( $BUFFER )
+                                USEFLAGS=( $BUFFER )
                             fi
                         done < /etc/Veiler/package.use
                     fi
@@ -386,26 +431,6 @@ checkifexists(){
     echo "no"
 }
 # --- End Functions ---
-while [ $# -gt 0 ]; do
-    case $1 in 
-        --*)
-            OPTIONS+=($1)
-            case $1 in
-                --with-dest)
-                    if [ -n $2 ]; then
-                        OPTIONS+=($2); shift
-                    else
-                        log_err "The option ${GRAY}--with-dest${NC} requires an argument!"
-                    fi
-            esac
-        ;;
-        *)
-            ARGUMENTS+=($1)
-        ;;
-    esac
-    shift
-done
-# -- Parse options --
 for((i=0; i < ${#OPTIONS[@]}; i++)){
     case ${OPTIONS[$i]} in
         --quiet)
@@ -450,6 +475,9 @@ for((i=0; i < ${#OPTIONS[@]}; i++)){
         --no-errexit)
             if [ $VEILERERREXIT -eq 0 ]; then VEILERERREXIT=1; else log_err "Not exiting upon errors already enabled!"; fi
         ;;
+        --config)
+            ((i++))
+        ;;
         *)
             log_err "Invalid option ${GRAY}${OPTIONS[$i]}${NC}"
         ;;
@@ -461,11 +489,6 @@ if [ $VEILERSKIPINST -eq 1 ]; then
 else
     set -- ${ARGUMENTS[@]}
 fi
-if [ $(echo $VEILERCACHEPATH | cut -c1) != "/" ]; then
-    log_err "Cache path must be absolute."
-elif [ $(echo $VEILERDBPATH | cut -c1) != "/" ]; then
-    log_err "DB path must be absolute."
-fi
 case $1 in
 	unveil)
         shift
@@ -475,13 +498,7 @@ case $1 in
         checkifroot
         BUFFER=$(echo $VEILERDEST | cut -c1 )
         if [ $BUFFER != "/" ]; then
-            log_warn "It is highly advised to use absolute paths instead of relative paths for installation of packages. If possible, please try to use absolute paths as much as you can. You can use \$PWD/<DESTDIR> to get an absolute path instead of a relative path. Using relative paths will most likely lead to breakages, for which I am not responsible."
-            log_info imp "Proceeding to install in: "
-            for i in 1 2 3 4 5; do
-                echo -ne "$i... "
-                sleep 2
-            done
-            echo -e "${NC}"
+            log_err "Please provide an absolute path for ${GRAY}--with-dest"
         fi
         if [ $VEILERONLYBUILD -eq 0 ]; then
             log_info notice "Packages will be installed in $VEILERDEST"
@@ -646,6 +663,13 @@ case $1 in
         if [ ${#UPGRADEDPACKAGES[@]} -eq 0 ]; then
             log_err "Nothing to upgrade. Exiting"
         fi
+        BUFFER=$(echo $VEILERDEST | cut -c1 )
+        if [ $BUFFER != "/" ]; then
+            log_err "Please provide an absolute path for ${GRAY}--with-dest"
+        fi
+        if [ $VEILERONLYBUILD -eq 0 ]; then
+            log_info notice "Packages will be upgraded in $VEILERDEST"
+        fi
         resolvedeps ${UPGRADEDPACKAGES[@]}
         echo -en "${WHITE}\nPackages to be upgraded ${GRAY}(${#UPRGADEDPACKAGES[@]}): "
         for((i=0; i < ${#UPGRADEDPACKAGES[@]}; i++)){
@@ -749,9 +773,11 @@ case $1 in
         echo -e "${GRAY}--no-root${NC}${WHITE}       : Don't use superuser priveledges ( might cause errors when installing in priveleged directories )${NC}"
         echo -e "${GRAY}--skip-clean${NC}${WHITE}    : Skip deleting existing build directories in cache ( will cause the package manager to not start building from scratch${NC}"
         echo -e "${GRAY}--skip-deps${NC}${WHITE}     : Skip dependency check ( can break packages )${NC}"
+        echo -e "${GRAY}--skip-installed${NC}${WHITE}: Skip installing packages provided to the package manager if they are already installed on the system.${NC}"
         echo -e "${GRAY}--megabytes${NC}${WHITE}     : Show size in megabytes instead of kilobytes${NC}"
         echo -e "${GRAY}--skip-integrity${NC}${WHITE}: Do not verify package integrity ( unsafe and can lead to security issues and building corrupted packages )${NC}"
         echo -e "${GRAY}--no-errexit${NC}${WHITE}    : Do not exit upon an error WHILE building the packages ( might cause you to have broken packages installed lol )${NC}"
+        echo -e "${GRAY}--config <PATH>${NC}${WHITE} : Use a custom configuration file instead of the default one." 
 		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
         echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /${NC}"
         echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}"
@@ -773,7 +799,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.8.2${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.9.2${NC}"
     ;;
     search)
         shift
