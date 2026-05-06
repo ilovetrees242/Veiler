@@ -1,4 +1,38 @@
 #!/bin/bash
+
+# Colors
+DARKBLUE='\033[0;34m'
+BLUE='\033[1;34m'
+RED='\033[1;31m'
+YELLOW='\033[1;33m'
+ORANGE='\033[0;33m'
+WHITE='\033[1;37m'
+GRAY='\033[0;37m'
+DARKGRAY='\033[1;30m'
+NC='\033[0m'
+
+log_warn(){
+    echo -e "${ORANGE}WARNING >>>${WHITE} $1${NC}"
+}
+log_err(){
+    echo -e "${RED}ERROR >>>${WHITE} $1${NC}"; exit 1 
+}
+log_info(){
+    case $1 in
+        tip)
+            echo -e "${BLUE}Tip >>>${WHITE} $2${NC}"
+        ;;
+        imp)
+            echo -e "${YELLOW}Important >>>${WHITE} $2${NC}"    
+        ;;
+        notice)
+            echo -e "${YELLOW}Notice >>>${WHITE} $2${NC}"    
+        ;;
+        activity)
+            echo -e "${YELLOW}Activity >>>${WHITE} $2${NC}"    
+        ;;
+    esac
+}
 VEILERCUSTOMCONF=0
 while [ $# -gt 0 ]; do
     case $1 in 
@@ -9,15 +43,18 @@ while [ $# -gt 0 ]; do
                     if [ -n $2 ]; then
                         OPTIONS+=($2); shift
                     else
-                        log_err "The option ${GRAY}--with-dest${NC} requires an argument!"
+                        log_err "The option ${GRAY}--with-dest${WHITE} requires an argument!"
                     fi
                 ;;
                 --config)
-                    if [[ -n $2 && $(echo $2 | cut -c1) = "/" ]]; then
-                        OPTIONS+=($2); shift
-                    else
-                        log_err "The option ${GRAY}--with-dest${NC} requires a valid argument! ${GRAY}( relative paths are not valid )"
+                    if [ -z $2 ]; then
+                        log_err "The option ${GRAY}--config${WHITE} requires a valid argument!"
+                    elif [ $(echo $2 | cut -c1) != "/" ]; then
+                        log_err "The option ${GRAY}--config${WHITE} requires an absolute path!"
+                    elif [ ! -f $2 ]; then
+                        log_err "Requested configuration file: ${YELLOW}$2${WHITE} does not exist on the system."
                     fi
+                    OPTIONS+=($2); shift
                 ;;
             esac
         ;;
@@ -61,17 +98,6 @@ LOCALUSEFLAGS=()
 
 if [ $VEILERCUSTOMCONF -eq 0 ]; then . $VEILERCONFIGPATH; fi
 
-# Colors
-DARKBLUE='\033[0;34m'
-BLUE='\033[1;34m'
-RED='\033[1;31m'
-YELLOW='\033[1;33m'
-ORANGE='\033[0;33m'
-WHITE='\033[1;37m'
-GRAY='\033[0;37m'
-DARKGRAY='\033[1;30m'
-NC='\033[0m'
-
 # Package handling related variables
 declare -a PKGNAME PKGVERSION
 PACKAGES=""
@@ -110,6 +136,7 @@ elif [ $(echo $VEILERCACHEPATH | cut -c1) != "/" ]; then
 elif [ $(echo $VEILERDBPATH | cut -c1) != "/" ]; then
     log_err "DB path must be absolute."
 fi
+
 trap 'veiler_stop_animation' TERM 
 trap 'echo -e "\n${YELLOW}Interrupted${NC}"; veiler_stop_animation; exit 1' INT
 
@@ -143,28 +170,6 @@ clean(){
     else
         return
     fi
-}
-log_warn(){
-    echo -e "${ORANGE}WARNING >>>${WHITE} $1${NC}"
-}
-log_err(){
-    echo -e "${RED}ERROR >>>${WHITE} $1${NC}"; exit 1 
-}
-log_info(){
-    case $1 in
-        tip)
-            echo -e "${BLUE}Tip >>>${WHITE} $2${NC}"
-        ;;
-        imp)
-            echo -e "${YELLOW}Important >>>${WHITE} $2${NC}"    
-        ;;
-        notice)
-            echo -e "${YELLOW}Notice >>>${WHITE} $2${NC}"    
-        ;;
-        activity)
-            echo -e "${YELLOW}Activity >>>${WHITE} $2${NC}"    
-        ;;
-    esac
 }
 checkifroot(){
     if [ $VEILERNOROOT -eq 0 -a $(id -u) -ne 0 ]; then
@@ -325,7 +330,7 @@ resolvedeps(){
                             done < "$VEILERDBPATH/sync/$PACKAGE/optdependencies"
                         fi
                     done
-                    USEFLAGS=$( ${GLOBALUSEFLAGS[@]} )
+                    USEFLAGS=( ${GLOBALUSEFLAGS[@]} )
                 )
             fi
         done
@@ -880,8 +885,8 @@ case $1 in
     ;;
     sync)
         log_info imp "${YELLOW}|||${WHITE} Syncing package repo"
-        if [ -d /usr/lib/Veiler ]; then
-            pushd /usr/lib/Veiler &> /dev/null
+        if [ -d /var/lib/Veiler ]; then
+            pushd /var/lib/Veiler &> /dev/null
             trap 'log_err "Could not sync repo!"' ERR
             set -e
             if [ ! -d Veiler ]; then

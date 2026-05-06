@@ -2,6 +2,11 @@ if [ $(id -u) -ne 0 ]; then
     echo "Run as root."
     exit 1
 fi
+source /etc/os-release
+if [ $ID == "nixos" ]; then
+    echo "NixOS System detected! Please use the derivation file instead."
+    exit 1
+fi
 set -e
 trap 'echo "Error while installing"' INT ERR TERM
 install -v -m 775 ./Veiler /usr/bin/
