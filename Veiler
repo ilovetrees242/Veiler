@@ -256,17 +256,16 @@ buildPackages(){
             if [ $VEILERONLYBUILD -eq 0 ]; then 
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
                 source ./MOONBUILD install
-                cp -r "$VEILERDBPATH/sync/${PKGNAME[$i]}" "$VEILERDBPATH/local"
+                cp -r "$VEILERDBPATH/sync/${PKGNAME[$i]}" "$VEILERDBPATH/local/"
                 cd "${PKGNAME[$i]}-${PKGVERSION[$i]}"/DEST
-                if [ ! -d $VEILERDBPATH/local/${PKGNAME[$i]} ]; then mkdir $VEILERDBPATH/local/${PKGNAME[$i]}; fi
                 find . ! -type d | sed 's/^.//' > $VEILERDBPATH/local/${PKGNAME[$i]}/files 
                 if [ -s $VEILERDBPATH/sync/${PKGNAME[$i]}/docfiles ]; then
                     if [ $VEILERDOC -eq 0 ]; then
                         while read file; do
                             if [ $VEILERQUIET -eq 1 ]; then
-                                rm -f DEST/$file
+                                rm -f ./$file
                             else
-                                rm -fv DEST/$file
+                                rm -fv ./$file
                             fi
                         done < $VEILERDBPATH/sync/${PKGNAME[$i]}/docfiles
                     fi
@@ -804,7 +803,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.9.2${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.9.3${NC}"
     ;;
     search)
         shift

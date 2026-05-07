@@ -1,0 +1,10 @@
+# GMP
+MOONPKGNAME="gmp"
+MOONPKGVERSION="6.3.0"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://mirrors.hopbox.net/gnu/gmp"
+DESC="Contains math libraries with useful function for arbitrary precision arithmetic"
+INSTALLEDSIZE=2604406
+WODOCINSTALLEDSIZE=648455
+DOWNLOADSIZE=2094196
+REQDSKSPC=39044375

@@ -3,7 +3,7 @@ if [ $(id -u) -ne 0 ]; then
 else
     set -e
     rm -vf /usr/bin/Veiler
-    rm -rvf /usr/lib/Veiler
+    rm -rvf /var/lib/Veiler
     rm -rfv /var/cache/Veiler /var/db/Veiler
     rm -fr /etc/Veiler
     echo "Uninstallation successful."

@@ -2,34 +2,36 @@ All types of useflags!!
 
 Useflags change how the package is built and installed, or it enables you to use optional features which most of the time require optional dependencies
 --- DISABLE FLAGS ---
--RPATH
--NLS
--MPFR
--EMACS
--XZ
--BZIP2
--ZLIB
 -ACL
--SELINUX
 -ATTR
--CURSES
+-BOOTSTRAPPING
+-BZIP2
 -C++
+-CURSES
+-EMACS
+-HISTORY
 -JAVA
 -LANGD
--BOOTSTRAPPING
--MULTILIB
 -LZMA
+-MPFR
+-MULTILIB
+-NLS
 -READLINE
--HISTORY
+-RPATH
+-SELINUX
+-XZ
+-ZLIB
 --- ENABLE  FLAGS ---
-+EDITLINE
-+GNULD
++C++
 +DEBUG
 +DOC-DOXYGEN
-+SENSORS
++EDITLINE
++GNULD
 +LTO
-+PAM
-+SELINUX
 +OPTIMIZATIONS
++PAM
++READLINE
 +SAFETY
++SELINUX
++SENSORS
 +VALGRIND
