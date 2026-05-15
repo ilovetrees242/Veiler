@@ -792,8 +792,9 @@ case $1 in
 		echo -e "${WHITE}help       : Displays this output${NC}"
         echo -e "${WHITE}version    : Display package manager version${NC}"
         echo -e "${WHITE}info       : Display information about installed packages${NC}"
-        echo -e "${WHITE}rmpkg      : Removes ALL the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
-        echo -e "${WHITE}clearcache : Remove EVERYTHING in the cache directory of the package manager.${NC}"
+        echo -e "${WHITE}rmpkg      : Removes ${ALL}ALL${WHITE} the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
+        echo -e "${WHITE}clearcache : Remove ${RED}EVERYTHING${WHITE} in the cache directory of the package manager.${NC}"
+        echo -e "${WHITE}pkgs : ${WHITE}Get number of all packages${NC}"
         echo -e "${YELLOW}Note: ${WHITE}See https://ilovetrees242.github.io/DevHelp/Website/Veiler.html for detailed information${NC}"
 	;;
     version)
@@ -803,7 +804,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.9.3${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.10.0${NC}"
     ;;
     search)
         shift
@@ -951,6 +952,9 @@ case $1 in
             rm -rvf "$VEILERCACHEPATH"/*.tar.*
         fi
         log_info imp "Always try to not run this operation as root user."
+    ;;
+    pkgs) 
+        echo "$(find $VEILERDBPATH/local -type d | sed '1d' | wc -l )"
     ;;
 	*)
         if [ -z $1 ]; then 
