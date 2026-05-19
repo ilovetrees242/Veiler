@@ -1,10 +1,10 @@
 # synfetch
 MOONPKGNAME="synfetch"
-MOONPKGVERSION="devel"
+MOONPKGVERSION="1.0.0"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://raw.githubusercontent.com/SXSLVT/synfetch/main/synfetch"
-DESC="A nice system information program"
-INSTALLEDSIZE=0
-WODOCINSTALLEDSIZE=0
-DOWNLOADSIZE=0
-REQDSKSPC=0
+SRC="https://github.com/SXSLVT/synfetch/archive/refs/tags"
+DESC="A nice system information program with live features"
+INSTALLEDSIZE=70205
+WODOCINSTALLEDSIZE=70205
+DOWNLOADSIZE=70205
+REQDSKSPC=71591

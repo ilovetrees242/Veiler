@@ -312,14 +312,12 @@ resolvedeps(){
         for PACKAGE in ${PACKAGES[@]}; do
             if [ ${#GLOBALUSEFLAGS[@]} -gt 0 -o -s /etc/Veiler/package.use ]; then
                 (
-                    if [ -s /etc/Veiler/package.use ]; then
-                        while read pkg; do
-                            if [ $(echo $pkg | sed 's/->.*//; s/\s//g') == "$PACKAGE" ]; then
-                                BUFFER=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
-                                USEFLAGS=( $BUFFER )
-                            fi
-                        done < /etc/Veiler/package.use
-                    fi
+                    while read pkg; do
+                        if [ $(echo $pkg | sed 's/->.*//; s/\s//g') == "$PACKAGE" ]; then
+                            BUFFER=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
+                            USEFLAGS=( $BUFFER )
+                        fi
+                    done < /etc/Veiler/package.use
                     for FLAG in ${USEFLAGS[@]}; do
                         if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
                             while read pkg_line; do
@@ -794,7 +792,8 @@ case $1 in
         echo -e "${WHITE}info       : Display information about installed packages${NC}"
         echo -e "${WHITE}rmpkg      : Removes ${ALL}ALL${WHITE} the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
         echo -e "${WHITE}clearcache : Remove ${RED}EVERYTHING${WHITE} in the cache directory of the package manager.${NC}"
-        echo -e "${WHITE}pkgs : ${WHITE}Get number of all packages${NC}"
+        echo -e "${WHITE}pkgs       : ${WHITE}Get number of all packages${NC}"
+        echo -e "${WHITE}list       : ${WHITE}List all packages installed${NC}"
         echo -e "${YELLOW}Note: ${WHITE}See https://ilovetrees242.github.io/DevHelp/Website/Veiler.html for detailed information${NC}"
 	;;
     version)
@@ -804,7 +803,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.10.0${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.11.0${NC}"
     ;;
     search)
         shift
@@ -955,6 +954,9 @@ case $1 in
     ;;
     pkgs) 
         echo "$(find $VEILERDBPATH/local -type d | sed '1d' | wc -l )"
+    ;;
+    list) 
+        printf "%s\n" "$(find $VEILERDBPATH/local -type d | sed '1d' | sed 's/.*local\///')"
     ;;
 	*)
         if [ -z $1 ]; then 

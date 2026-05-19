@@ -25,6 +25,7 @@ Useflags change how the package is built and installed, or it enables you to use
 +C++
 +DEBUG
 +DOC-DOXYGEN
++DETECTION
 +EDITLINE
 +GNULD
 +LTO
