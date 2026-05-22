@@ -285,6 +285,7 @@ buildPackages(){
 }
 uninstallPackages(){
     log_info imp "Uninstalling the package(s)"
+    local UNINSTALLED = 0
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Uninstalling ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1)/${#PKGNAME[@]}))${WHITE} Failed to uninstall the package ${RED}>>>${WHITE} ${PKGNAME[$i]}"' ERR; fi
@@ -296,9 +297,13 @@ uninstallPackages(){
                     rm -fv "$file"
                 fi
             done < $VEILERDBPATH/local/${PKGNAME[$i]}/files
+            UNINSTALLED = 1
         fi
         rm -rf "$VEILERDBPATH/local/${PKGNAME[$i]}"
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Successfully uninstalled ${DARKBLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
+        if [ $UNINSTALLED -eq 1 ]; then
+            log_info notice "Nothing was uninstalled."
+        fi
     }
     trap - ERR
 }
@@ -311,24 +316,22 @@ resolvedeps(){
         GLOBALUSEFLAGS=( ${USEFLAGS[@]} )
         for PACKAGE in ${PACKAGES[@]}; do
             if [ ${#GLOBALUSEFLAGS[@]} -gt 0 -o -s /etc/Veiler/package.use ]; then
-                (
-                    while read pkg; do
-                        if [ $(echo $pkg | sed 's/->.*//; s/\s//g') == "$PACKAGE" ]; then
-                            BUFFER=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
-                            USEFLAGS=( $BUFFER )
-                        fi
-                    done < /etc/Veiler/package.use
-                    for FLAG in ${USEFLAGS[@]}; do
-                        if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
-                            while read pkg_line; do
-                                if [ "$FLAG" == "$(echo $pkg_line | sed 's/ .*//')" ]; then
-                                    PACKAGES+=( $(echo $pkg_line | sed 's/.* //' ) )
-                                fi
-                            done < "$VEILERDBPATH/sync/$PACKAGE/optdependencies"
-                        fi
-                    done
-                    USEFLAGS=( ${GLOBALUSEFLAGS[@]} )
-                )
+                USEFLAGS=( ${GLOBALUSEFLAGS[@]} )
+                while read pkg; do
+                    if [ $(echo $pkg | sed 's/->.*//; s/\s//g') == "$PACKAGE" ]; then
+                        BUFFER=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
+                        USEFLAGS=( $BUFFER )
+                    fi
+                done < /etc/Veiler/package.use
+                for FLAG in ${USEFLAGS[@]}; do
+                     if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
+                         while read pkg_line; do
+                             if [ "$FLAG" == "$(echo $pkg_line | sed 's/ .*//')" ]; then
+                                 PACKAGES+=( $(echo $pkg_line | sed 's/.* //' ) )
+                             fi
+                         done < "$VEILERDBPATH/sync/$PACKAGE/optdependencies"
+                     fi
+                 done
             fi
         done
         PACKAGEBUFFER=( ${PACKAGES[@]} )
