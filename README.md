@@ -23,4 +23,4 @@ The following dependencies are required in order to use the package manager ( us
 * Grep ( Same as sed ) 
 
 # Documentation
-Information related to configuration, installation or usage can be found at https://ilovetrees242.github.io/DevHelp/Website/Veiler.html
+Information related to configuration, installation or usage can be found at https://ilovetrees242.github.io/Supplements/Website/Veiler.html
