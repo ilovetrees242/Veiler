@@ -6,5 +6,5 @@ SRC="https://github.com/SXSLVT/synfetch/archive/refs/tags"
 DESC="A nice system information program with live features"
 INSTALLEDSIZE=70205
 WODOCINSTALLEDSIZE=70205
-DOWNLOADSIZE=70205
-REQDSKSPC=71591
+DOWNLOADSIZE=119070
+REQDSKSPC=154489

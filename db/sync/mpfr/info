@@ -1,10 +1,10 @@
 # MPFR ( Multi Precision For Real ( i know this isnt correct but why not ) )
 MOONPKGNAME="mpfr"
-MOONPKGVERSION="6.3.0"
+MOONPKGVERSION="4.2.2"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/gmp"
-DESC="Contains math libraries with useful function for arbitrary precision arithmetic"
-INSTALLEDSIZE=2604406
-WODOCINSTALLEDSIZE=648455
-DOWNLOADSIZE=2094196
-REQDSKSPC=39044375
+SRC="https://mirrors.hopbox.net/gnu/mpfr"
+DESC="Contains math functions for multi precision math"
+INSTALLEDSIZE=2728150
+WODOCINSTALLEDSIZE=1899131
+DOWNLOADSIZE=2251590d
+REQDSKSPC=17697707
