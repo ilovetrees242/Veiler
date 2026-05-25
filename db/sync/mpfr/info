@@ -6,5 +6,5 @@ SRC="https://mirrors.hopbox.net/gnu/mpfr"
 DESC="Contains math functions for multi precision math"
 INSTALLEDSIZE=2728150
 WODOCINSTALLEDSIZE=1899131
-DOWNLOADSIZE=2251590d
+DOWNLOADSIZE=2251590
 REQDSKSPC=17697707
