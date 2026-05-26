@@ -282,7 +282,7 @@ buildPackages(){
 }
 uninstallPackages(){
     log_info imp "Uninstalling the package(s)"
-    local UNINSTALLED = 0
+    local UNINSTALLED=0
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Uninstalling ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1)/${#PKGNAME[@]}))${WHITE} Failed to uninstall the package ${RED}>>>${WHITE} ${PKGNAME[$i]}"' ERR; fi
@@ -294,7 +294,7 @@ uninstallPackages(){
                     rm -fv "$file"
                 fi
             done < $VEILERDBPATH/local/${PKGNAME[$i]}/files
-            UNINSTALLED = 1
+            UNINSTALLED=1
         fi
         rm -rf "$VEILERDBPATH/local/${PKGNAME[$i]}"
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Successfully uninstalled ${DARKBLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
@@ -358,6 +358,10 @@ resolvedeps(){
                     pop
                 done
                 if [[ ! -d "$VEILERDBPATH/local/$CURRENTPACKAGE" && $(checkifallvisited "$CURRENTPACKAGE") == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
+                    RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
+                    visited[$CURRENTPACKAGE]="yes"
+                fi
+                if [[ $(checkifallvisited "$CURRENTPACKAGE") == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
                    RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
                 fi
                 if [ "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" ]; then
@@ -584,6 +588,7 @@ case $1 in
         fi
         checkifroot
         play_animation "$(log_info activity "Checking if packages exist")"
+        sleep 0.1
         for PACKAGE in "$@"; do
             if [ ! -d "$VEILERDBPATH/sync/$PACKAGE" ]; then veiler_stop_animation; log_err "The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database.${NC}"; fi
         done
