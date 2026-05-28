@@ -1,0 +1,10 @@
+# Tar
+MOONPKGNAME="tar"
+MOONPKGVERSION="1.35"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://mirrors.hopbox.net/gnu/tar"
+DESC="Compression utility for compressing and decompressing files"
+INSTALLEDSIZE=7146773
+WODOCINSTALLEDSIZE=4337271
+DOWNLOADSIZE=2317208
+REQDSKSPC=3450757
