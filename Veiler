@@ -15,7 +15,13 @@ log_warn(){
     echo -e "${ORANGE}WARNING >>>${WHITE} $1${NC}"
 }
 log_err(){
-    echo -e "${RED}ERROR >>>${WHITE} $1${NC}"; exit 1 
+    if [ "$1" == "noexit" ];then 
+        echo -e "${RED}ERROR >>>${WHITE} $2${NC}"
+    else
+        echo -e "${RED}ERROR >>>${WHITE} $1${NC}"
+        exit 1
+    fi
+    shift
 }
 log_info(){
     case $1 in
@@ -65,10 +71,10 @@ while [ $# -gt 0 ]; do
     shift
 done
 for((i=0; i < ${#OPTIONS[@]}; i++)){
-    if [ "${OPTIONS[$i]}" == "--config" ]; then
+    if [ "${OPTIONS[$i]}" == "--config" -a -s $VEILERCONFIGPATH ]; then
         VEILERCONFIGPATH=${OPTIONS[$((i+1))]}
         VEILERCUSTOMCONF=1
-        . $VEILERCONFIGPATH
+        log_info notice "Using $VEILERCONFIGPATH as config"
     fi
 }
 # Main package manager related variables
@@ -89,7 +95,6 @@ VEILERMBE=0
 VEILERDEST="/"
 VEILERCACHEPATH="/var/cache/Veiler/"
 VEILERDBPATH="/var/db/Veiler"
-VEILERCONFIGPATH="/etc/Veiler/veiler.conf"
 PROCESSID=""
 PKGREPO="https://ilovetrees242.github.io/Supplements/Website/Packages"
 USEFLAGS=""
@@ -97,7 +102,11 @@ GLOBALUSEFLAGS=()
 LOCALUSEFLAGS=()
 STACK=()
 
-if [ $VEILERCUSTOMCONF -eq 0 ]; then . $VEILERCONFIGPATH; fi
+if [ $VEILERCUSTOMCONF -eq 0 -a -s $VEILERCONFIGPATH ]; then 
+    . /etc/Veiler/veiler.conf
+elif [ $VEILERCUSTOMCONF -eq 1 ]; then 
+    . $VEILERCONFIGPATH
+fi
 
 # Package handling related variables
 declare -a PKGNAME PKGVERSION
@@ -162,7 +171,11 @@ veiler_stop_animation(){
 clean(){
     if [ $VEILERSKIPCLEAN -eq 0 -a -d $VEILERCACHEPATH ]; then
         for directory in $(find $VEILERCACHEPATH -type d | sed '1d'); do
-            rm -rf "${directory}" || log_err "Could not clean cache!"
+            if [ $VEILERNOROOT -eq 0 ]; then
+                su -c "rm -rf "${directory}"" veiler-build-user || log_err "Could not clean cache!"
+            else
+                rm -rf "${directory}" || log_err "Could not clean cache!"
+            fi
         done        
     else
         return
@@ -187,13 +200,15 @@ getBuildTarballs(){
     log_info imp "Fetching package(s)..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         if [ ! -f "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" ]; then
-            if [ $VEILERQUIET -eq 0 ]; then
-                wget -nv --show-progress "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
+            if [ $VEILERNOROOT -eq 0 ]; then
+                su -c "if [ $VEILERQUIET -eq 0 ]; then wget -nv --show-progress "$PKGREPO"/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz; else wget -q --show-progress "$PKGREPO"/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz; fi" veiler-build-user 
             else
-                wget -q --show-progress "$PKGREPO/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
-            fi 
+                if [ $VEILERQUIET -eq 0 ]; then wget -nv --show-progress "$PKGREPO"/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz; else wget -q --show-progress "$PKGREPO"/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz; fi
+            fi
             if [ $? -ne 0 ]; then 
-                log_err "Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!" && log_info tip "Maybe try running $0 ${GRAY}sync?${NC}"
+                log_err noexit "Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!" && log_info tip "Maybe try running $0 ${GRAY}sync?${NC}"
+                log_info tip "If you are trying to build and install packages as a non root user, then you should use another cache directory owned by your user ( you can something like ~/.var/cache/Veiler ), since /var/cache/Veiler is the system cache and only root and build user has write access to it."
+                exit 1
             fi
         fi
     }
@@ -202,18 +217,28 @@ extractBuildTarballs(){
     log_info imp "Extracting the package build tarball(s)..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Extracting ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}"
-        if [ $VEILERQUIET -eq 1 ]; then
-            tar xf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
+        if [ $VEILERNOROOT -eq 0 ]; then
+            su -c "if [ $VEILERQUIET -eq 1 ]; then tar xf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"; else tar xvf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"; fi" veiler-build-user
         else
-            tar xvf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"
-        fi || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not extract the build tarball for ${RED}>>> ${WHITE}${PKGNAME[$i]}"
+            if [ $VEILERQUIET -eq 1 ]; then tar xf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"; else tar xvf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"; fi
+        fi
+        if [ $? -ne 0 ]; then
+            log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not extract the build tarball for ${RED}>>> ${WHITE}${PKGNAME[$i]}"
+        fi
     }
 }
 getSources(){
     log_info imp "Getting source(s) [ ${YELLOW}${#PKGNAME[@]}${WHITE} ]..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
-            source ./MOONBUILD getpkg || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to download the source for ${PKGNAME[$i]}"
+            if [ $VEILERNOROOT -eq 0 ]; then 
+                su -c "VEILERQUIET=$VEILERQUIET VEILERDBPATH=$VEILERDBPATH ./MOONBUILD getpkg" veiler-build-user
+            else
+                VEILERQUIET=$VEILERQUIET VEILERDBPATH=$VEILERDBPATH ./MOONBUILD getpkg
+            fi
+            if [ $? -ne 0 ]; then
+                log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to download the source for ${PKGNAME[$i]}"
+            fi
         popd &> /dev/null
     }
 }
@@ -235,10 +260,11 @@ buildPackages(){
     log_info imp "Building the package(s)..."
     GLOBALUSEFLAGS=( ${USEFLAGS[@]} )
     for((i=0; i < ${#PKGNAME[@]}; i++)){
-        if [ $VEILERERREXIT -eq 0 ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build or install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Building ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null
             (
+                BUFFER=$(trap -p ERR)
+                if [ $VEILERERREXIT -eq 0 -a -z $BUFFER ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
                 if [ -s /etc/Veiler/package.use ]; then
                     while read pkg; do
                         if [ $(echo $pkg | sed 's/->.*//; s/^s//g') == "${PKGNAME[$i]}" ]; then
@@ -247,9 +273,16 @@ buildPackages(){
                         fi
                     done < /etc/Veiler/package.use
                 fi
-                source ./MOONBUILD build
+                export USEFLAGS="${USEFLAGS[@]}"
+                if [ $VEILERNOROOT -eq 0 ]; then
+                    su -c "VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS ./MOONBUILD build" veiler-build-user
+                else
+                    VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS ./MOONBUILD build
+                fi
                 USEFLAGS=( ${GLOBALUSEFLAGS[@]} )
             )
+            BUFFER=$(trap -p ERR)
+            if [ $VEILERERREXIT -eq 0 -a -z "$BUFFER" ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
             if [ $VEILERONLYBUILD -eq 0 ]; then 
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
                 source ./MOONBUILD install
@@ -337,6 +370,15 @@ resolvedeps(){
                  done
             fi
         done
+        if [ $VEILERTESTS -eq 1 ]; then
+            for PACKAGE in ${PACKAGES[@]}; do
+                if [ -s ""$VEILERDBPATH"/sync/"$PACKAGE"/testdependencies" ]; then
+                    while read dependency; do
+                        PACKAGES+=( "$dependency" )
+                    done < ""$VEILERDBPATH"/sync/"$PACKAGE"/testdependencies"
+                fi
+            done
+        fi
         for PACKAGE in ${PACKAGES[@]}; do
             push $PACKAGE
             while [ ${#STACK[@]} -gt 0 ]; do
@@ -526,16 +568,16 @@ case $1 in
         AVAILSPACE=$((AVAILSPACE*1024))
         if [ $VEILERDOC -eq 1 ]; then
             if [ $AVAILSPACE -le $((TOTALINSTSIZE+TOTALDSR)) ]; then
-                echo -e "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-                echo -e "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((TOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
-                echo -e "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+                log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+                log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((TOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
+                log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
                 exit 1
             fi
         else
             if [ $AVAILSPACE -le $((WODOCTOTALINSTSIZE+TOTALDSR)) ]; then
-                echo -e "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-                echo -e "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((WODOCTOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
-                echo -e "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+                log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+                log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((WODOCTOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
+                log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
                 exit 1
             fi
         fi
@@ -629,12 +671,12 @@ case $1 in
         checkifroot
         log_info notice "It is advised to run ${BLUE}$0 ${YELLOW}sync${WHITE} before performing this operation."
         shift
-        PACKAGES=( $(find $VEILERDBPATH/local -type d | sed '1d') )
+        PACKAGES=( $(find $VEILERDBPATH/local -type d | sed '1d' | sed "s@$VEILERDBPATH/local\/@@") )
         for PACKAGE in ${PACKAGES[@]}; do
-            if [ -f $PACKAGE/info -a -f $PACKAGE/info ]; then 
-                source $PACKAGE/info
+            if [ -f "$VEILERDBPATH/local/$PACKAGE/info" -a -f "$VEILERDBPATH/sync/$PACKAGE/info" ]; then 
+                source "$VEILERDBPATH/local/$PACKAGE/info"
                 LOCALPKGVERSION=$MOONPKGVERSION
-                source $PACKAGE/info
+                source "$VEILERDBPATH/sync/$PACKAGE/info"
                 SYNCPKGVERSION=$MOONPKGVERSION
                 if [ $LOCALPKGVERSION != $SYNCPKGVERSION ]; then
                     UPGRADEDPACKAGES+=( "$PACKAGE" )
@@ -642,7 +684,7 @@ case $1 in
                     UPGRADEDPACKAGESSYNCVERSION+=( "$SYNCPKGVERSION" )
                 fi
             else
-                log_warn "No valid information file could be found for the package ${BLUE}$(echo $PACKAGE | sed 's/.*local\//')"
+                log_warn "No valid information file could be found for the package ${BLUE}$PACKAGE${NC}"
             fi
         done
         if [ ${#UPGRADEDPACKAGES[@]} -eq 0 ]; then
@@ -656,7 +698,7 @@ case $1 in
             log_info notice "Packages will be upgraded in $VEILERDEST"
         fi
         resolvedeps ${UPGRADEDPACKAGES[@]}
-        echo -en "${WHITE}\nPackages to be upgraded ${GRAY}(${#UPRGADEDPACKAGES[@]}): "
+        echo -en "${WHITE}\nPackages to be upgraded ${GRAY}(${#UPGRADEDPACKAGES[@]}): "
         for((i=0; i < ${#UPGRADEDPACKAGES[@]}; i++)){
             echo -ne "${WHITE}${UPGRADEDPACKAGES[$i]} ${GRAY}(${UPGRADEDPACKAGESLOCALVERSION[$i]})${YELLOW} -> ${WHITE}${UPGRADEDPACKAGES[$i]} ${GRAY}(${UPGRADEDPACKAGESSYNCVERSION[$i]})${NC}   "
         }; echo
@@ -675,28 +717,28 @@ case $1 in
             SIZEBUFFER=0
             source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
             SIZEBUFFER=$((SIZEBUFFER + INSTALLEDSIZE))
-            source $VEILERDBPATH/local/${PKGNAME[$i]}/info
+            if [ -f $VEILERDBPATH/local/${PKGNAME[$i]}/info ]; then source $VEILERDBPATH/local/${PKGNAME[$i]}/info; fi
             SIZEBUFFER=$((SIZEBUFFER - INSTALLEDSIZE))
-            TOTALUPGRADESIZE=$SIZEBUFFER
+            TOTALUPGRADESIZE=$(( $TOTALUPGRADESIZE + $SIZEBUFFER ))
             SIZEBUFFER=0
             source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
             SIZEBUFFER=$((SIZEBUFFER + INSTALLEDSIZEWODOC))
-            source $VEILERDBPATH/local/${PKGNAME[$i]}/info
+            if [ -f $VEILERDBPATH/local/${PKGNAME[$i]}/info ]; then source $VEILERDBPATH/local/${PKGNAME[$i]}/info; fi
             SIZEBUFFER=$((SIZEBUFFER - INSTALLEDSIZEWODOC))
-            TOTALUPGRADESIZEWODOC=$SIZEBUFFER
+            TOTALUPGRADESIZEWODOC=$(( $TOTALUPGRADESIZEWODOC + $SIZEBUFFER))
             SIZEBUFFER=0
         }
         AVAILSPACE=$(df --output=avail | sed -n '2p')
         if [ $AVAILSPACE -le $((TOTALUPGRADESIZE+TOTALDSR)) ]; then
-            echo -e "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-            echo -e "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $((TOTALUPGRADESIZE/1024/1024)) MiB <${NC} "
-            echo -e "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+            log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!" 
+            log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $((TOTALUPGRADESIZE/1024/1024)) MiB <${NC} "
+            log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
             exit 1
         fi
         if [ $AVAILSPACE -le $((TOTALUPGRADESIZEWODOC+TOTALDSR)) ]; then
-            echo -e "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-            echo -e "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $((TOTALUPGRADESIZEWODOC/1024/1024)) MiB <${NC} "
-            echo -e "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+            log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+            log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $((TOTALUPGRADESIZEWODOC/1024/1024)) MiB <${NC} "
+            log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
             exit 1
         fi
         echo -e "${DARKBLUE}***${BLUE} Total upgrade size:${WHITE} $TOTALUPGRADESIZE${NC}"
@@ -786,7 +828,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.12.1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.14.0${NC}"
     ;;
     search)
         shift
@@ -871,22 +913,13 @@ case $1 in
             pushd /var/lib/Veiler &> /dev/null
             trap 'log_err "Could not sync repo!"' ERR
             set -e
-            if [ ! -d Veiler ]; then
-                git clone https://github.com/ilovetrees242/Veiler.git
-                rm -rf Veiler/*
-                pushd Veiler &> /dev/null
-                git restore db.tar.gz
-                popd &> /dev/null
-                rm -rf "$VEILERDBPATH"/sync
-            fi
+            if [ -f db.tar.xz ]; then rm -f db.tar.xz; fi
             if [ "$VEILERQUIET" -eq 0 ]; then
-                pushd Veiler &> /dev/null
-                git pull origin main
-                tar -C "$VEILERDBPATH" --strip-components=1 -xvf db.tar.gz
+                wget "https://github.com/ilovetrees242/Veiler/raw/refs/heads/main/db.tar.xz"
+                tar -C "$VEILERDBPATH" --strip-components=1 -xvf db.tar.xz
             else
-                pushd Veiler &> /dev/null
-                git pull origin main &> /dev/null
-                tar -C "$VEILERDBPATH" --strip-components=1 -xf db.tar.gz
+                wget -q --show-progress "https://github.com/ilovetrees242/Veiler/raw/refs/heads/main/db.tar.xz"
+                tar -C "$VEILERDBPATH" --strip-components=1 -xf db.tar.xz
             fi
             set +e
             trap - ERR
@@ -931,9 +964,8 @@ case $1 in
     ;;
     clearcache)
         if [ -n "$VEILERCACHEPATH" -a -d "$VEILERCACHEPATH" ]; then
-            rm -rvf "$VEILERCACHEPATH"/*.tar.*
+            rm -rvf "${VEILERCACHEPATH:-/var/cache/Veiler}"/*
         fi
-        log_info imp "Always try to not run this operation as root user."
     ;;
     pkgs) 
         echo "$(find $VEILERDBPATH/local -type d | sed '1d' | wc -l )"

@@ -16,6 +16,7 @@ Useflags change how the package is built and installed, or it enables you to use
 -MPFR
 -MULTILIB
 -NLS
+-NCURSES
 -READLINE
 -RPATH
 -SELINUX
@@ -27,6 +28,7 @@ Useflags change how the package is built and installed, or it enables you to use
 +DOC-DOXYGEN
 +DETECTION
 +EDITLINE
++ELOGIND
 +GNULD
 +LTO
 +OPTIMIZATIONS
@@ -35,4 +37,5 @@ Useflags change how the package is built and installed, or it enables you to use
 +SAFETY
 +SELINUX
 +SENSORS
++SYSTEMD
 +VALGRIND
