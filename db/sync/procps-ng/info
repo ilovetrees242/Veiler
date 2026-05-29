@@ -1,0 +1,10 @@
+# Procps-ng
+MOONPKGNAME="procps-ng"
+MOONPKGVERSION="4.0.6"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+SRC="https://sourceforge.net/projects/procps-ng/files/Production"
+DESC="Contains various programs for monitoring system tasks"
+INSTALLEDSIZE=5724918
+WODOCINSTALLEDSIZE=4005601
+DOWNLOADSIZE=1580516
+REQDSKSPC=22476243

@@ -1,5 +1,5 @@
 # Python
-MOONPKGNAME="Python"
+MOONPKGNAME="python"
 MOONPKGVERSION="3.14.4"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
 SRC="https://www.python.org/ftp/python/3.14.4"
