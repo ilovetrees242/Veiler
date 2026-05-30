@@ -256,6 +256,7 @@ verifyChecksums(){
 }
 buildPackages(){
     export MAKEFLAGS="$MAKEFLAGS"
+    export PKG_CONFIG_PATH="$PKGCONFPATH"
     USEFLAGS=( ${USEFLAGS[@]} )
     log_info imp "Building the package(s)..."
     GLOBALUSEFLAGS=( ${USEFLAGS[@]} )
@@ -273,11 +274,11 @@ buildPackages(){
                         fi
                     done < /etc/Veiler/package.use
                 fi
-                export USEFLAGS="${USEFLAGS[@]}"
+                BUFFER="${USEFLAGS[*]}"
                 if [ $VEILERNOROOT -eq 0 ]; then
-                    su -c "VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS ./MOONBUILD build" veiler-build-user
+                    su -c "VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS=\"$BUFFER\" ./MOONBUILD build" veiler-build-user
                 else
-                    VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS ./MOONBUILD build
+                    USEFLAGS="$BUFFER" VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS ./MOONBUILD build
                 fi
                 USEFLAGS=( ${GLOBALUSEFLAGS[@]} )
             )
@@ -285,7 +286,12 @@ buildPackages(){
             if [ $VEILERERREXIT -eq 0 -a -z "$BUFFER" ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
             if [ $VEILERONLYBUILD -eq 0 ]; then 
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-                source ./MOONBUILD install
+                su -c "VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ./MOONBUILD install" veiler-build-user
+                if [ -f "$VEILERDBPATH/local/${PKGNAME[$i]}/files" ]; then
+                    while read currentfile; do
+                        rm -f "$VEILERDEST/$currentfile"
+                    done < "$VEILERDBPATH/local/${PKGNAME[$i]}/files"
+                fi
                 cp -r "$VEILERDBPATH/sync/${PKGNAME[$i]}" "$VEILERDBPATH/local/"
                 cd "${PKGNAME[$i]}-${PKGVERSION[$i]}"/DEST
                 find . ! -type d | sed 's/^.//' > $VEILERDBPATH/local/${PKGNAME[$i]}/files 
@@ -828,7 +834,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.14.0${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.14.1${NC}"
     ;;
     search)
         shift
