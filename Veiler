@@ -95,6 +95,7 @@ VEILERMBE=0
 VEILERDEST="/"
 VEILERCACHEPATH="/var/cache/Veiler/"
 VEILERDBPATH="/var/db/Veiler"
+VEILERPREFIX="/usr"
 PROCESSID=""
 PKGREPO="https://ilovetrees242.github.io/Supplements/Website/Packages"
 USEFLAGS=""
@@ -216,7 +217,7 @@ getBuildTarballs(){
 extractBuildTarballs(){
     log_info imp "Extracting the package build tarball(s)..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
-        echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Extracting ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}"
+        echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Extracting ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         if [ $VEILERNOROOT -eq 0 ]; then
             su -c "if [ $VEILERQUIET -eq 1 ]; then tar xf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"; else tar xvf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"; fi" veiler-build-user
         else
@@ -242,6 +243,28 @@ getSources(){
         popd &> /dev/null
     }
 }
+getPatches(){
+    log_info imp "Getting patch(es) [ ${YELLOW}${#PKGNAME[@]}${WHITE} ]..."
+    for((i=0; i < ${#PKGNAME[@]}; i++)){
+        pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
+            if [ -s "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches" ]; then
+                if [ $VEILERQUIET -eq 0 ]; then
+                    if [ $VEILERNOROOT -eq 0 ]; then
+                        su -c "wget -nv -nc --input-file "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches"" veiler-build-user
+                    else
+                        wget -nv -nc --input-file "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches" veiler-build-user
+                    fi
+                else
+                    if [ $VEILERNOROOT -eq 0 ]; then
+                        su -c "wget -q --show-progress -nc --input-file "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches"" veiler-build-user
+                    else
+                        wget -nv -q --show-progress --input-file "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches" veiler-build-user
+                    fi
+                fi
+            fi
+        popd &> /dev/null
+    }
+}
 verifyChecksums(){
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         if [ $VEILERSKIPINTEGRITY -eq 0 ]; then
@@ -263,9 +286,11 @@ buildPackages(){
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Building ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         pushd "build-${PKGNAME[$i]}-${PKGVERSION[$i]}" &> /dev/null
+            source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
+            unset MOONPKGNAME MOONPKGVERSION DESC SRC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE 
             (
-                BUFFER=$(trap -p ERR)
-                if [ $VEILERERREXIT -eq 0 -a -z $BUFFER ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
+                BUFFER=$(trap -p EXIT)
+                if [ $VEILERERREXIT -eq 0 -a -z "$BUFFER" ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to build the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
                 if [ -s /etc/Veiler/package.use ]; then
                     while read pkg; do
                         if [ $(echo $pkg | sed 's/->.*//; s/^s//g') == "${PKGNAME[$i]}" ]; then
@@ -274,26 +299,65 @@ buildPackages(){
                         fi
                     done < /etc/Veiler/package.use
                 fi
-                BUFFER="${USEFLAGS[*]}"
-                if [ $VEILERNOROOT -eq 0 ]; then
-                    su -c "VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS=\"$BUFFER\" ./MOONBUILD build" veiler-build-user
-                else
-                    USEFLAGS="$BUFFER" VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS ./MOONBUILD build
+                if [ $VEILERSKIPCLEAN -eq 0 ]; then
+                    if [ -d "$MOONPKG" ]; then rm -rf "$MOONPKG"; fi
+                    if [ $VEILERQUIET -eq 1 ]; then
+                        if [ $VEILERNOROOT -eq 0 ]; then
+                            su -c "tar xf "$MOONPKG".*" veiler-build-user
+                        else
+                            tar xf "$MOONPKG".*
+                        fi
+                    else
+                        if [ $VEILERNOROOT -eq 0 ]; then
+                            su -c "tar xvf "$MOONPKG".*" veiler-build-user
+                        else
+                            tar xvf "$MOONPKG".*
+                        fi
+                    fi
                 fi
+                pushd "$MOONPKG" &> /dev/null 
+                    if [ $VEILERNOROOT -eq 0 ]; then
+                        if [ $VEILERQUIET -eq 1 ]; then
+                            su -c "VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS=\"$BUFFER\" ../MOONBUILD build" veiler-build-user > /dev/null
+                        else
+                            su -c "VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS=\"$BUFFER\" ../MOONBUILD build" veiler-build-user
+                        fi
+                    else
+                        if [ $VEILERQUIET -eq 1 ]; then
+                            VEILERPREFIX=$VEILERPREFIX USEFLAGS="$BUFFER" VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS ../MOONBUILD build > /dev/null
+                        else
+                            VEILERPREFIX=$VEILERPREFIX USEFLAGS="$BUFFER" VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS ../MOONBUILD build
+                        fi
+                    fi
+                popd &> /dev/null
                 USEFLAGS=( ${GLOBALUSEFLAGS[@]} )
             )
             BUFFER=$(trap -p ERR)
             if [ $VEILERERREXIT -eq 0 -a -z "$BUFFER" ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; fi
             if [ $VEILERONLYBUILD -eq 0 ]; then 
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-                su -c "VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ./MOONBUILD install" veiler-build-user
+                pushd "$MOONPKG" &> /dev/null
+                    if [ $VEILERNOROOT -eq 0 ]; then
+                        if [ $VEILERQUIET -eq 1 ]; then
+                            su -c "VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install" veiler-build-user > /dev/null
+                        else
+                            su -c "VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install" veiler-build-user
+                        fi
+                    else
+                        if [ $VEILERQUIET -eq 1 ]; then
+                            VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install > /dev/null
+                        else
+                            VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install
+                        fi
+                    fi
+                popd &> /dev/null
                 if [ -f "$VEILERDBPATH/local/${PKGNAME[$i]}/files" ]; then
                     while read currentfile; do
                         rm -f "$VEILERDEST/$currentfile"
                     done < "$VEILERDBPATH/local/${PKGNAME[$i]}/files"
                 fi
                 cp -r "$VEILERDBPATH/sync/${PKGNAME[$i]}" "$VEILERDBPATH/local/"
-                cd "${PKGNAME[$i]}-${PKGVERSION[$i]}"/DEST
+                cd "$MOONPKG"/DEST
                 find . ! -type d | sed 's/^.//' > $VEILERDBPATH/local/${PKGNAME[$i]}/files 
                 if [ -s $VEILERDBPATH/sync/${PKGNAME[$i]}/docfiles ]; then
                     if [ $VEILERDOC -eq 0 ]; then
@@ -621,6 +685,7 @@ case $1 in
             getBuildTarballs 
             extractBuildTarballs 
             getSources 
+            getPatches
             verifyChecksums 
             buildPackages
             if [ $VEILERONLYBUILD -eq 1 ]; then
@@ -834,7 +899,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 1.14.1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 1.15.0${NC}"
     ;;
     search)
         shift
