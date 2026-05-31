@@ -2,7 +2,6 @@
 MOONPKGNAME="glibc"
 MOONPKGVERSION="2.43"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-PATCHSRC="https://www.linuxfromscratch.org/patches/lfs/13.0/glibc-fhs-1.patch"
 SRC="https://mirrors.hopbox.net/gnu/glibc"
 DESC="GLibc is the GNU's implementation of the standard C library, for provided libraries to allocate memory, handle strings, manage files, networking, etc"
 INSTALLEDSIZE=111082599
