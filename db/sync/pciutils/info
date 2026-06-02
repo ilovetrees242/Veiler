@@ -2,7 +2,8 @@
 MOONPKGNAME="pciutils"
 MOONPKGVERSION="3.15.0"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mj.ucw.cz/download/linux/pci/"
+EXTENSION=".tar.gz"
+SRC="https://mj.ucw.cz/download/linux/pci/$MOONPKG$EXTENSION"
 DESC="Contains programs to identify hardware connected via the PCI bus"
 INSTALLEDSIZE=472096
 WODOCINSTALLEDSIZE=430212

@@ -2,7 +2,8 @@
 MOONPKGNAME="zstd"
 MOONPKGVERSION="1.5.7"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com/facebook/zstd/releases/download/v1.5.7/"
+EXTENSION=".tar.gz"
+SRC="https://github.com/facebook/zstd/releases/download/v$MOONPKGVERSION/$MOONPKG$EXTENSION"
 DESC="Zstd is a fast real time compression algorithm"
 INSTALLEDSIZE=3863405
 WODOCINSTALLEDSIZE=3826258

@@ -2,7 +2,8 @@
 MOONPKGNAME="diffutils"
 MOONPKGVERSION="3.12"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/diffutils"
+EXTENSION=".tar.xz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="Diffutils contains utilities for listing differences between files or directories"
 INSTALLEDSIZE=2835065
 WODOCINSTALLEDSIZE=2589543

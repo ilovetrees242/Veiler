@@ -2,7 +2,8 @@
 MOONPKGNAME="gperf"
 MOONPKGVERSION="3.3"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/gperf"
+EXTENSION=".tar.gz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="GNU Perfect hash generator"
 INSTALLEDSIZE=690697
 WODOCINSTALLEDSIZE=474544

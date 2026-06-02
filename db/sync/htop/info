@@ -2,7 +2,8 @@
 MOONPKGNAME="htop"
 MOONPKGVERSION="3.4.1"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com/htop-dev/htop/releases/download/3.4.1/"
+EXTENSION=".tar.xz"
+SRC="https://github.com/htop-dev/htop/releases/download/$MOONPKGVERSION/$MOONPKG$EXTENSION"
 DESC="Interactive command line system resource usage monitor"
 INSTALLEDSIZE=1644434
 WODOCINSTALLEDSIZE=1621300

@@ -2,7 +2,8 @@
 MOONPKGNAME="synfetch"
 MOONPKGVERSION="1.1.2"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com/SXSLVT/synfetch/archive/refs/tags"
+EXTENSION=".tar.gz"
+SRC="https://github.com/SXSLVT/$MOONPKGNAME/archive/refs/tags/v$MOONPKGVERSION$EXTENSION"
 DESC="A nice system information program with live features"
 INSTALLEDSIZE=71744
 WODOCINSTALLEDSIZE=71744

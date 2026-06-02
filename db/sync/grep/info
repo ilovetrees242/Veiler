@@ -2,7 +2,8 @@
 MOONPKGNAME="grep"
 MOONPKGVERSION="3.12"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/grep"
+EXTENSION=".tar.xz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="GNUs regular expression matcher which can be used to search through files and directories for regex"
 INSTALLEDSIZE=1652044
 WODOCINSTALLEDSIZE=1479530

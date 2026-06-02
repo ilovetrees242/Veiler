@@ -2,7 +2,8 @@
 MOONPKGNAME="lz4"
 MOONPKGVERSION="1.10.0"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com/lz4/lz4/releases/download/v1.10.0"
+EXTENSION=".tar.gz"
+SRC="https://github.com/$MOONPKGNAME/$MOONPKGNAME/releases/download/v$MOONPKGVERSION/$MOONPKG$EXTENSION"
 DESC="Lz4 is an extremely fast compression algorithm"
 INSTALLEDSIZE=751423
 WODOCINSTALLEDSIZE=740742

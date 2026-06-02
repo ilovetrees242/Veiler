@@ -2,7 +2,8 @@
 MOONPKGNAME="gmp"
 MOONPKGVERSION="6.3.0"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/gmp"
+EXTENSION=".tar.xz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="Contains math libraries with useful function for arbitrary precision arithmetic"
 INSTALLEDSIZE=2604406
 WODOCINSTALLEDSIZE=648455

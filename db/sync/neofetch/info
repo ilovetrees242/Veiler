@@ -2,7 +2,8 @@
 MOONPKGNAME="neofetch"
 MOONPKGVERSION="7.1.0"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com/dylanaraps/neofetch/archive/7.1.0"
+EXTENSION=".tar.gz"
+SRC="https://github.com/dylanaraps/neofetch/archive/$MOONPKGVERSION/$MOONPKG$EXTENSION"
 DESC="System information utiltiy used to display information like the kernel name, distro name uptime, packages installed, etc"
 INSTALLEDSIZE=353473
 WODOCINSTALLEDSIZE=341595

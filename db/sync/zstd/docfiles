@@ -1,3 +1,5 @@
-/usr/share/man/man1/zstdless.1
-/usr/share/man/man1/zstd.1
-/usr/share/man/man1/zstdgrep.1
+/share/man/man1/zstdless.1
+/share/man/man1/zstd.1
+/share/man/man1/zstdgrep.1
+/usr/share/man/man1/unzstd.1
+/usr/share/man/man1/zstdcat.1

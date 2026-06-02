@@ -2,7 +2,8 @@
 MOONPKGNAME="bison"
 MOONPKGVERSION="3.8.2"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/bison"
+EXTENSION=".tar.xz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="The GNU General purpose parser generator"
 INSTALLEDSIZE=5164757
 WODOCINSTALLEDSIZE=4091642

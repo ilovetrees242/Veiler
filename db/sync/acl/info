@@ -2,7 +2,8 @@
 MOONPKGNAME="acl"
 MOONPKGVERSION="2.3.2"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://download.savannah.gnu.org/releases/acl/"
+EXTENSION=".tar.xz"
+SRC="https://download.savannah.gnu.org/releases/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="Access control lists provides control lists, which are used for management of access rights of files and directories"
 INSTALLEDSIZE=711416
 WODOCINSTALLEDSIZE=488801

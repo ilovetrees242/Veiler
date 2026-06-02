@@ -2,9 +2,10 @@
 MOONPKGNAME="gawk"
 MOONPKGVERSION="5.3.2"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/gawk"
+EXTENSION=".tar.gz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="Gawk contains various programs for extracting data from files or stdout"
 INSTALLEDSIZE=8650290
 WODOCINSTALLEDSIZE=5878072
 DOWNLOADSIZE=6570029
-REQDSKSPC=
+REQDSKSPC=75440047

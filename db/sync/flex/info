@@ -2,7 +2,8 @@
 MOONPKGNAME="flex"
 MOONPKGVERSION="2.6.4"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com/westes/flex/releases/download/v2.6.4"
+EXTENSION=".tar.gz"
+SRC="https://github.com/westes/flex/releases/download/v$MOONPKGVERSION/$MOONPKG$EXTENSION"
 DESC="Flex package contains utility for generating programs that recognise patterns in text"
 INSTALLEDSIZE=1674965
 WODOCINSTALLEDSIZE=1239998

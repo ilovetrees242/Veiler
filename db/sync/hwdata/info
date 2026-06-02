@@ -2,7 +2,8 @@
 MOONPKGNAME="hwdata"
 MOONPKGVERSION="0.404"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com/vcrhonek/hwdata/archive/v0.404/"
+EXTENSION=".tar.gz"
+SRC="https://github.com/vcrhonek/hwdata/archive/v$MOONPKGVERSION/$MOONPKG$EXTENSION"
 DESC="Contains current PCI and vendor ID data"
 INSTALLEDSIZE=10269509
 WODOCINSTALLEDSIZE=10269509

@@ -2,7 +2,8 @@
 MOONPKGNAME="ncurses"
 MOONPKGVERSION="6.6"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://invisible-mirror.net/archives/ncurses/"
+EXTENSION=".tar.gz"
+SRC="https://invisible-mirror.net/archives/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="Ncurses is a library for handling terminal-independent handling of screens and TUIs"
 INSTALLEDSIZE=2745322
 WODOCINSTALLEDSIZE=1512307

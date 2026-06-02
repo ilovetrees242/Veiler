@@ -2,7 +2,8 @@
 MOONPKGNAME="which"
 MOONPKGVERSION="2.23"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://ftp.gnu.org/gnu/which"
+EXTENSION=".tar.gz"
+SRC="https://ftp.gnu.org/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="The which utility is a program which is used to locate programs on a users PATH enviroment variable."
 INSTALLEDSIZE=98056
 WODOCINSTALLEDSIZE=86656

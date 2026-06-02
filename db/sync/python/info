@@ -2,7 +2,8 @@
 MOONPKGNAME="python"
 MOONPKGVERSION="3.14.4"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://www.python.org/ftp/python/3.14.4"
+EXTENSION=".tar.xz"
+SRC="https://www.python.org/ftp/$MOONPKGNAME/$MOONPKGVERSION/${MOONPKG^}$EXTENSION"
 DESC="This package provides the interpreter and other libraries for the interpreted language Python"
 INSTALLEDSIZE=278561621
 WODOCINSTALLEDSIZE=278561621

@@ -2,7 +2,8 @@
 MOONPKGNAME="gdbm"
 MOONPKGVERSION="1.26"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/gdbm"
+EXTENSION=".tar.gz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="GDBM is a library of database functions that use extensible hasing and work similar to UNIX DBM"
 INSTALLEDSIZE=1730838
 WODOCINSTALLEDSIZE=1452219

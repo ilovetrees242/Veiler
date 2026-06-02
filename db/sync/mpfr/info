@@ -2,7 +2,8 @@
 MOONPKGNAME="mpfr"
 MOONPKGVERSION="4.2.2"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/mpfr"
+EXTENSION=".tar.gz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="Contains math functions for multi precision math"
 INSTALLEDSIZE=2728150
 WODOCINSTALLEDSIZE=1899131

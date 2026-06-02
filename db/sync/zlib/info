@@ -2,7 +2,8 @@
 MOONPKGNAME="zlib"
 MOONPKGVERSION="1.3.2"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://zlib.net/fossils"
+EXTENSION=".tar.gz"
+SRC="https://zlib.net/fossils/$MOONPKG$EXTENSION"
 DESC="Zlib is a compression library for providing good compression routines and subroutines"
 INSTALLEDSIZE=415741
 WODOCINSTALLEDSIZE=411269

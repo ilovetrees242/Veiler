@@ -2,7 +2,8 @@
 MOONPKGNAME="xz"
 MOONPKGVERSION="5.8.2"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://github.com//tukaani-project/xz/releases/download/v5.8.2/"
+EXTENSION=".tar.gz"
+SRC="https://github.com/tukaani-project/$MOONPKGNAME/releases/download/v$MOONPKGVERSION/$MOONPKG$EXTENSION"
 DESC="Xz provides programs for working with xz and lzma compressed files. It yields a better compression rate than bzip2 or gzip"
 INSTALLEDSIZE=3678039
 WODOCINSTALLEDSIZE=2287834

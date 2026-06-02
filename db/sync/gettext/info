@@ -2,7 +2,8 @@
 MOONPKGNAME="gettext"
 MOONPKGVERSION="1.0"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://mirrors.hopbox.net/gnu/gettext"
+EXTENSION=".tar.xz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
 DESC="Gettext provides utilities for internationalization and localization"
 INSTALLEDSIZE=40174043
 WODOCINSTALLEDSIZE=32836141
