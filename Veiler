@@ -291,7 +291,7 @@ getSources(){
                        if [ $VEILERQUIET -eq 1 ]; then
                            wget -q --show-progress $filename
                        else
-                           wget -nv --input-file $filename
+                           wget -nv $filename
                        fi
                     fi
                 done < $VEILERDBPATH/sync/${PKGNAME[$i]}/additionaldownloads
@@ -407,12 +407,10 @@ buildPackages(){
             if [ $VEILERONLYBUILD -eq 0 ]; then 
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
                 pushd "$MOONPKG" &> /dev/null
-                    if [ $VEILERNOROOT -eq 0 ]; then
-                        if [ $VEILERQUIET -eq 1 ]; then
-                            VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install > /dev/null
-                        else
-                            VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install
-                        fi
+                    if [ $VEILERQUIET -eq 1 ]; then
+                        VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install > /dev/null
+                    else
+                        VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install
                     fi
                 popd &> /dev/null
                 if [ -f "$VEILERDBPATH/local/${PKGNAME[$i]}/files" ]; then
@@ -525,7 +523,8 @@ resolvedeps(){
                         DEPS+=( "$dependency" )
                     done < "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies"
                 fi
-                if [ ${visited[$CURRENTPACKAGE]} ]; then pop && continue; fi
+                if [[ "${visited[$CURRENTPACKAGE]}" == "yes" && $(checkifinargs $CURRENTPACKAGE) == "yes" ]]; then RESOLVEDPACKAGES+=("$CURRENTPACKAGE"); pop; continue; fi
+                if [ "${visited[$CURRENTPACKAGE]}" == "yes" ]; then pop && continue; fi
                 for DEPENDENCY in ${DEPS[@]}; do
                     push $DEPENDENCY
                     if [ ${visited[$DEPENDENCY]} ]; then pop && continue; fi
@@ -540,7 +539,7 @@ resolvedeps(){
                     visited[$CURRENTPACKAGE]="yes"
                 fi
                 if [[ $(checkifallvisited "$CURRENTPACKAGE") == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
-                   RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
+                    RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
                 fi
                 if [ "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" ]; then
                     visited[$CURRENTPACKAGE]="yes"
@@ -548,13 +547,31 @@ resolvedeps(){
             done
         done
         veiler_stop_animation
-        PACKAGES=( ${RESOLVEDPACKAGES[@]} )
+        PACKAGES=( "${RESOLVEDPACKAGES[@]}" )
         makepkgarray "${PACKAGES[@]}"
     else
         makepkgarray "$@"
         return
     fi
     # --- End dependency calculating ---
+}
+checkifallvisited(){
+    if [ -f "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies" ]; then
+        while read dependency; do
+            if [ ! ${visited[$dependency]} ]; then return; fi
+        done < "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies"
+    fi
+    echo "yes"
+}
+checkifinargs(){
+    for PACKAGE in ${PACKAGES[@]}; do
+        for PKG in ${RESOLVEDPACKAGES[@]}; do
+            if [ "$1" == "$PKG" ]; then return; fi
+            if [ "$PACKAGE" == "$1" ]; then
+                echo "yes"
+            fi
+        done
+    done
 }
 makepkgarray(){
     PKGVERSION=()
@@ -583,14 +600,6 @@ makepkgarray(){
         BUFFERPKGNAME=
         shift
     done
-}
-checkifallvisited(){
-    if [ -f "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies" ]; then
-        while read dependency; do
-            if [ ! ${visited[$dependency]} ]; then return; fi
-        done < "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies"
-    fi
-    echo "yes"
 }
 # --- End Functions ---
 for((i=0; i < ${#OPTIONS[@]}; i++)){
@@ -965,7 +974,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 2.0.0${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 2.0.1${NC}"
     ;;
     search)
         shift
