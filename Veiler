@@ -465,10 +465,10 @@ uninstallPackages(){
         fi
         rm -rf "$VEILERDBPATH/local/${PKGNAME[$i]}"
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Successfully uninstalled ${DARKBLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-        if [ $UNINSTALLED -eq 1 ]; then
-            log_info notice "Nothing was uninstalled."
-        fi
     }
+    if [ $UNINSTALLED -eq 0 ]; then
+        log_info notice "Nothing was uninstalled."
+    fi
     trap - ERR
 }
 push(){
@@ -476,6 +476,23 @@ push(){
 }
 pop(){
     unset 'STACK[$((${#STACK[@]} - 1))]'
+}
+checkifallvisited(){
+    if [ -f "$VEILERDBPATH/sync/$1/dependencies" ]; then
+        while read dependency; do
+            if [ "${visited[$dependency]}" != "yes" ]; then return; fi
+        done < "$VEILERDBPATH/sync/$1/dependencies"
+    fi
+    echo "yes"
+}
+checkifinargs(){
+    for PACKAGE in ${PACKAGES[@]}; do
+        if [ "$PACKAGE" == "$1" ]; then
+            echo "yes"
+            break
+        fi
+    done
+    echo ""
 }
 resolvedeps(){
     # --- Start dependency calculating ---
@@ -488,7 +505,7 @@ resolvedeps(){
             if [ ${#GLOBALUSEFLAGS[@]} -gt 0 -o -s /etc/Veiler/package.use ]; then
                 USEFLAGS=( ${GLOBALUSEFLAGS[@]} )
                 while read pkg; do
-                    if [ $(echo $pkg | sed 's/->.*//; s/\s//g') == "$PACKAGE" ]; then
+                    if [ "$(echo $pkg | sed 's/->.*//; s/\s//g')" == "$PACKAGE" ]; then
                         BUFFER=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
                         USEFLAGS=( $BUFFER )
                     fi
@@ -523,22 +540,25 @@ resolvedeps(){
                         DEPS+=( "$dependency" )
                     done < "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies"
                 fi
-                if [[ "${visited[$CURRENTPACKAGE]}" == "yes" && $(checkifinargs $CURRENTPACKAGE) == "yes" ]]; then RESOLVEDPACKAGES+=("$CURRENTPACKAGE"); pop; continue; fi
                 if [ "${visited[$CURRENTPACKAGE]}" == "yes" ]; then pop && continue; fi
                 for DEPENDENCY in ${DEPS[@]}; do
                     push $DEPENDENCY
-                    if [ ${visited[$DEPENDENCY]} ]; then pop && continue; fi
+                    if [ "${visited[$DEPENDENCY]}" == "yes" ]; then pop && continue; fi
                     if [ ! -d "$VEILERDBPATH/local/$DEPENDENCY" ]; then
                         break
                     fi
-                    visited[$DEPENDENCY]="yes"
+                    if [ "$(checkifinargs "$DEPENDENCY")" != "yes" ]; then
+                        visited[$DEPENDENCY]="yes"
+                    elif [ "$(checkifinargs "$DEPENDENCY")" == "yes" ]; then 
+                        push $DEPENDENCY
+                    fi
                     pop
                 done
-                if [[ ! -d "$VEILERDBPATH/local/$CURRENTPACKAGE" && $(checkifallvisited "$CURRENTPACKAGE") == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
+                if [[ ! -d "$VEILERDBPATH/local/$CURRENTPACKAGE" && "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
                     RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
                     visited[$CURRENTPACKAGE]="yes"
                 fi
-                if [[ $(checkifallvisited "$CURRENTPACKAGE") == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
+                if [[ "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
                     RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
                 fi
                 if [ "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" ]; then
@@ -554,24 +574,6 @@ resolvedeps(){
         return
     fi
     # --- End dependency calculating ---
-}
-checkifallvisited(){
-    if [ -f "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies" ]; then
-        while read dependency; do
-            if [ ! ${visited[$dependency]} ]; then return; fi
-        done < "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies"
-    fi
-    echo "yes"
-}
-checkifinargs(){
-    for PACKAGE in ${PACKAGES[@]}; do
-        for PKG in ${RESOLVEDPACKAGES[@]}; do
-            if [ "$1" == "$PKG" ]; then return; fi
-            if [ "$PACKAGE" == "$1" ]; then
-                echo "yes"
-            fi
-        done
-    done
 }
 makepkgarray(){
     PKGVERSION=()
@@ -974,7 +976,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 2.0.1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 2.0.0${NC}"
     ;;
     search)
         shift
