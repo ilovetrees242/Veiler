@@ -1,10 +1,11 @@
 # Coreutils ( Core Utilities )
-MOONPKGNAME="which"
-MOONPKGVERSION="2.23"
+MOONPKGNAME="coreutils"
+MOONPKGVERSION="9.11"
 MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
-SRC="https://ftp.gnu.org/gnu/which"
-DESC="The which utility is a program which is used to locate programs on a users PATH enviroment variable."
-INSTALLEDSIZE=98056
-WODOCINSTALLEDSIZE=86656
-DOWNLOADSIZE=201930
-REQDSKSPC=1295336
+EXTENSION=".tar.xz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
+DESC="The coreutils package contains all tools and utilities necessary for any operating system's foundation"
+INSTALLEDSIZE=42725395
+WODOCINSTALLEDSIZE=41267589
+DOWNLOADSIZE=6562420
+REQDSKSPC=181460683
