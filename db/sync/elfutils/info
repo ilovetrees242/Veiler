@@ -1,0 +1,11 @@
+# Elfutils ( Executable and linkable format utilities )
+MOONPKGNAME="elfutils"
+MOONPKGVERSION="0.194"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+EXTENSION=".tar.bz2"
+SRC="https://sourceware.org/ftp/$MOONPKGNAME/$MOONPKGVERSION/$MOONPKG$EXTENSION"
+DESC="The elfutils pacakge contains various tools and libraries for handling ELF files."
+INSTALLEDSIZE=31776386
+WODOCINSTALLEDSIZE=31612947
+DOWNLOADSIZE=111002062
+REQDSKSPC=123006687

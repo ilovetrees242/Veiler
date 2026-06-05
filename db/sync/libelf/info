@@ -1,0 +1,12 @@
+# Libelf ( Executable Linkable Format Libraries )
+MOONPKGNAME="libelf"
+MOONPKGVERSION="0.194"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+MOONBASEPKG="elfutils"
+EXTENSION=".tar.bz2"
+SRC="https://sourceware.org/ftp/$MOONPKGNAME/$MOONPKGVERSION/$MOONPKG$EXTENSION"
+DESC="The libelf package contains libraries for handling the ELF format."
+INSTALLEDSIZE=
+WODOCINSTALLEDSIZE=
+DOWNLOADSIZE=
+REQDSKSPC=
