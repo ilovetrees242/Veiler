@@ -9,6 +9,7 @@ Useflags change how the package is built and installed, or it enables you to use
 -C++
 -CURSES
 -EMACS
+-GMP
 -HISTORY
 -JAVA
 -LANGD
@@ -22,20 +23,25 @@ Useflags change how the package is built and installed, or it enables you to use
 -SELINUX
 -XZ
 -ZLIB
+-ZSTD
 --- ENABLE  FLAGS ---
 +C++
++CURSES
 +DEBUG
 +DOC-DOXYGEN
 +DETECTION
 +EDITLINE
 +ELOGIND
 +GNULD
++HISTORY
 +LTO
 +OPTIMIZATIONS
 +PAM
 +READLINE
++STATIC
 +SAFETY
 +SELINUX
 +SENSORS
 +SYSTEMD
++UNWIND
 +VALGRIND
