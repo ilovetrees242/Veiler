@@ -220,6 +220,7 @@ getBuildTarballs(){
                 wget -nv --show-progress "$PKGREPO/build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz"
             fi
         fi
+        unset MOONBASEPKG
     }
 }
 extractBuildTarballs(){
@@ -236,12 +237,14 @@ extractBuildTarballs(){
         if [ -n "$MOONBASEPKG" ]; then
             source $VEILERDBPATH/sync/$MOONBASEPKG/info
             unset MOONPKG DESC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE
+            echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Extracting the base package ${BLUE}>>> ${WHITE}${MOONPKGNAME} ${BLUE}<<<${WHITE} for ${PKGNAME[$i]}${NC}"
             if [ $VEILERNOROOT -eq 0 ]; then
                 su -c "if [ $VEILERQUIET -eq 1 ]; then tar xf "build-"$MOONPKGNAME"-"$MOONPKGVERSION".tar.gz"; else tar xvf "build-"$MOONPKGNAME"-"$MOONPKGVERSION".tar.gz"; fi" veiler-build-user
             else
                 if [ $VEILERQUIET -eq 1 ]; then tar xf "build-"$MOONPKGNAME"-"$MOONPKGVERSION".tar.gz"; else tar xvf "build-"$MOONPKGNAME"-"$MOONPKGVERSION".tar.gz"; fi
             fi
         fi
+        unset MOONBASEPKG
         if [ $? -ne 0 ]; then
             log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not extract the build tarball for ${RED}>>> ${WHITE}${PKGNAME[$i]}"
         fi
@@ -262,6 +265,7 @@ getSources(){
                 fi
                 cd ../build-$MOONPKGNAME-$MOONPKGVERSION
             fi
+            unset MOONBASEPKG
             if [ -z "$EXTENSION" ]; then
                 log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Valid extension could not be found for ${PKGNAME[$i]}"
                 log_info tip "Extensions for the source tarball. Example: acl-2.3.2.tar.xz - extension = .tar.xz. More valid extensions for compressed files: .zip, .tar.zst, .tar.gz, .bzip2"
@@ -283,7 +287,6 @@ getSources(){
                     log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Valid source could not be found for ${PKGNAME[$i]}"
                 fi
             fi      
-            unset MOONBASEPKG
             if [ -s $VEILERDBPATH/sync/${PKGNAME[$i]}/additionaldownloads ]; then
                 log_info imp "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Downloading additional files for the package ${BLUE}>>>${WHITE} ${PKGNAME[$i]} ${BLUE}<<< $(wc -l $VEILERDBPATH/sync/${PKGNAME[$i]}/additionaldownloads | sed 's/\s.*//')"
                 while read filename; do
@@ -313,6 +316,29 @@ getPatches(){
         popd &> /dev/null
     }
 }
+checkDiskSpace(){
+    AVAILSPACE=$(df --output=avail | sed -n '2p')
+    AVAILSPACE=$((AVAILSPACE*1024))
+    if [ $VEILERERREXIT -eq 0 ]; then
+       if [ $VEILERDOC -eq 1 ]; then
+           if [ $AVAILSPACE -le $((TOTALINSTSIZE+TOTALDSR)) ]; then
+               log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+               log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((TOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
+               log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+               exit 1
+           fi
+       else
+           if [ $AVAILSPACE -le $((WODOCTOTALINSTSIZE+TOTALDSR)) ]; then
+               log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
+               log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((WODOCTOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
+               log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+               exit 1
+           fi
+       fi
+    else
+        return
+    fi
+}
 verifyChecksums(){
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         if [ $VEILERSKIPINTEGRITY -eq 0 ]; then
@@ -329,6 +355,7 @@ verifyChecksums(){
                     tar -cf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz" "build-$MOONPKGNAME-$MOONPKGVERSION"  || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the base package ${RED}>>>${WHITE}$MOONPKGNAME" 
                 fi
             fi  
+            unset MOONBASEPKG
             pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
                 sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for package ${RED}>>>${WHITE} ${PKGNAME[$i]}"
             popd &> /dev/null
@@ -370,7 +397,7 @@ buildPackages(){
                 if [ -d "$MOONPKG" ]; then rm -rf "$MOONPKG"; fi
                 if [ $VEILERQUIET -eq 1 ]; then
                     if [ $VEILERNOROOT -eq 0 ]; then
-                         su -c "mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG --strip-components=1" veiler-build-user
+                        su -c "mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG --strip-components=1" veiler-build-user
                     else
                         mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG --strip-components=1
                     fi
@@ -408,9 +435,9 @@ buildPackages(){
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
                 pushd "$MOONPKG" &> /dev/null
                     if [ $VEILERQUIET -eq 1 ]; then
-                        VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install > /dev/null
+                        VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERDOC=$VEILERDOC ../MOONBUILD install > /dev/null
                     else
-                        VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET ../MOONBUILD install
+                        VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERDOC=$VEILERDOC ../MOONBUILD install
                     fi
                 popd &> /dev/null
                 if [ -f "$VEILERDBPATH/local/${PKGNAME[$i]}/files" ]; then
@@ -442,6 +469,7 @@ buildPackages(){
                 fi
             fi
         popd &> /dev/null
+        unset MOONBASEPKG
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Completed the build${DARKBLUE} >>> ${WHITE}${PKGNAME[$i]}${NC}"
     }
     unset MAKEFLAGS
@@ -709,25 +737,9 @@ case $1 in
 	        ((TOTALINSTSIZE+=SPACEBUFFER))
 	        SPACEBUFFER=$(sed -n 's/^WODOCINSTALLEDSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
-	    ((WODOCINSTSIZE+=SPACEBUFFER))
+    	    ((WODOCINSTSIZE+=SPACEBUFFER))
 	    done
-        AVAILSPACE=$(df --output=avail | sed -n '2p')
-        AVAILSPACE=$((AVAILSPACE*1024))
-        if [ $VEILERDOC -eq 1 ]; then
-            if [ $AVAILSPACE -le $((TOTALINSTSIZE+TOTALDSR)) ]; then
-                log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-                log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((TOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
-                log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
-                exit 1
-            fi
-        else
-            if [ $AVAILSPACE -le $((WODOCTOTALINSTSIZE+TOTALDSR)) ]; then
-                log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-                log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((WODOCTOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
-                log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
-                exit 1
-            fi
-        fi
+        checkDiskSpace
         if [ $VEILERMBE -eq 1 ]; then
 	        ((TOTALDSR=TOTALDSR/1024/1024))
 	        echo -e "${DARKBLUE}*** ${BLUE}Total disk space required: ${WHITE}"$TOTALDSR" MiB${NC}"
@@ -876,19 +888,7 @@ case $1 in
             TOTALUPGRADESIZEWODOC=$(( $TOTALUPGRADESIZEWODOC + $SIZEBUFFER))
             SIZEBUFFER=0
         }
-        AVAILSPACE=$(df --output=avail | sed -n '2p')
-        if [ $AVAILSPACE -le $((TOTALUPGRADESIZE+TOTALDSR)) ]; then
-            log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!" 
-            log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $((TOTALUPGRADESIZE/1024/1024)) MiB <${NC} "
-            log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
-            exit 1
-        fi
-        if [ $AVAILSPACE -le $((TOTALUPGRADESIZEWODOC+TOTALDSR)) ]; then
-            log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-            log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $((TOTALUPGRADESIZEWODOC/1024/1024)) MiB <${NC} "
-            log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
-            exit 1
-        fi
+        checkDiskSpace
         echo -e "${DARKBLUE}***${BLUE} Total upgrade size:${WHITE} $TOTALUPGRADESIZE${NC}"
         echo -e "${DARKBLUE}***${BLUE} Total upgrade size ( without documentation ):${WHITE} $TOTALUPGRADESIZEWODOC${NC}"
         if [ $VEILERASK -eq 1 ]; then
@@ -976,7 +976,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 2.0.0${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 2.0.1${NC}"
     ;;
     search)
         shift
