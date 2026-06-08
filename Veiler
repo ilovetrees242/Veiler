@@ -139,11 +139,13 @@ SIZEBUFFER=0
 
 TRAPSET=0
 
-if [ $(echo $VEILERDEST | cut -c1) != "/" ]; then
+if [ ${VEILERDEST:0:1} != "/" ]; then
     log_err "DEST path must be an absolute path."
-elif [ $(echo $VEILERCACHEPATH | cut -c1) != "/" ]; then
+elif [ ${VEILERCACHEPATH:0:1} != "/" ]; then
     log_err "Cache path must be absolute."
-elif [ $(echo $VEILERDBPATH | cut -c1) != "/" ]; then
+elif [ ${VEILERPREFIX:0:1} != "/" ]; then
+    log_err "Prefix must be absolute!"
+elif [ ${VEILERDBPATH:0:1} != "/" ]; then
     log_err "DB path must be absolute."
 fi
 
