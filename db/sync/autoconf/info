@@ -1,0 +1,11 @@
+# Autoconf ( Automatic Configuration )
+MOONPKGNAME="autoconf"
+MOONPKGVERSION="2.72"
+MOONPKG="$MOONPKGNAME-$MOONPKGVERSION"
+EXTENSION=".tar.xz"
+SRC="https://mirrors.hopbox.net/gnu/$MOONPKGNAME/$MOONPKG$EXTENSION"
+DESC="Autoconf helps in automatically generating shell scripts which can configure source code"
+INSTALLEDSIZE=3493065
+WODOCINSTALLEDSIZE=1994904
+DOWNLOADSIZE=1389680
+REQDSKSPC=9807399
