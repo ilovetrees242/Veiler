@@ -1,8 +1,0 @@
-bzip2
-expat
-gdbm
-libffi
-libxcrypt
-zlib
-zstd
-tzdata

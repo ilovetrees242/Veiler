@@ -11,7 +11,10 @@ install -v -m 775 ./Veiler /usr/bin/
 install -v -m 775 -d /var/db/Veiler/
 install -v -m 775 -d /var/lib/Veiler
 install -v -m 775 -d /var/db/Veiler/local
-tar --no-same-owner --strip-components=1 -C /var/db/Veiler/ -xf db.tar.xz
+if [ ! -f db.tar.xz ]; then
+    wget https://ilovetrees242.github.io/Supplements/Website/Packages/db.tar.xz
+fi
+tar --no-same-owner -C /var/db/Veiler/ -xf db.tar.xz
 install -v -m 774 -d /var/cache/Veiler
 install -v -m 755 -d /etc/Veiler
 install -v -m 775 veiler.conf /etc/Veiler/

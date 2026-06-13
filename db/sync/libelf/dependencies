@@ -1,7 +1,0 @@
-bzip2
-xz
-zstd
-zlib
-glibc
-libgcc
-libstdc++

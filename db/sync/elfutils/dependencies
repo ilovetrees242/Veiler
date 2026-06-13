@@ -1,8 +1,0 @@
-libelf
-libgcc
-glibc
-libstdc++
-xz
-bzip2
-zstd
-zlib
