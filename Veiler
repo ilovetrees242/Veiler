@@ -111,7 +111,7 @@ fi
 
 # Package handling related variables
 declare -a PKGNAME PKGVERSION
-declare -A visited
+declare -A visited visiting
 PACKAGES=()
 RESOLVEPACKAGES=()
 DEPS=()
@@ -147,6 +147,9 @@ elif [ ${VEILERPREFIX:0:1} != "/" ]; then
     log_err "Prefix must be absolute!"
 elif [ ${VEILERDBPATH:0:1} != "/" ]; then
     log_err "DB path must be absolute."
+fi
+if [ ! "$(command -v su)" ]; then
+    log_warn "SU Command not found. Please install shadow package or use --no-root option."
 fi
 
 trap 'veiler_stop_animation' TERM 
@@ -309,11 +312,19 @@ getPatches(){
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
             if [ -s "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches" ]; then
-                if [ $VEILERQUIET -eq 0 ]; then
-                    wget -nv -nc --input-file "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches"
-                else
-                    wget -nv -q --show-progress --input-file "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches"
-                fi
+                while read ptch; do
+                    local PATCHNAME=$(echo $ptch | sed 's/.*\///')
+                    if [ ! -f "$PATCHNAME" ]; then
+                        if [ $VEILERQUIET -eq 0 ]; then
+                            wget -nv $ptch
+                        else
+                            wget -nv -q $ptch
+                        fi
+                        if [ $? -ne 0 ]; then
+                            log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to download the patch for ${PKGNAME[$i]}"
+                        fi
+                    fi
+                done < "$VEILERDBPATH/sync/${PKGNAME[$i]}/patches"
             fi
         popd &> /dev/null
     }
@@ -351,7 +362,8 @@ verifyChecksums(){
                 source $VEILERDBPATH/sync/$MOONBASEPKG/info
                 unset MOONPKG SRC REQDSKSPC INSTALLEDSIZE WODOCINSTALLEDSIZE DOWNLOADSIZE 
                 pushd "build-"$MOONPKGNAME"-"$MOONPKGVERSION"" &> /dev/null
-                    sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for base package ${RED}>>>${WHITE} $MOONPKGNAME"
+                    if [ $? -eq 1 ]; then log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to enter the build directory for the base package ${RED}>>>${WHITE} $MOONPKGNAME for the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"; fi
+                    sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for base package ${RED}>>>${WHITE} $MOONPKGNAME for the package ${RED}>>>${WHITE}${PKGNAME[$i]}"
                 popd &> /dev/null
                 if [ $VEILERSKIPCLEAN -eq 0 ]; then
                     tar -cf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz" "build-$MOONPKGNAME-$MOONPKGVERSION"  || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the base package ${RED}>>>${WHITE}$MOONPKGNAME" 
@@ -359,6 +371,7 @@ verifyChecksums(){
             fi  
             unset MOONBASEPKG
             pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
+                if [ $? -eq 1 ]; then echo && log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to enter the build directory for the package ${RED}>>>${WHITE} ${PKGNAME[$i]}"; fi
                 sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for package ${RED}>>>${WHITE} ${PKGNAME[$i]}"
             popd &> /dev/null
             sleep 0.1
@@ -426,9 +439,9 @@ buildPackages(){
                     fi
                 else
                     if [ $VEILERQUIET -eq 1 ]; then
-                       VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX USEFLAGS="$BUFFER" VEILERDBPATH=$VEILERDBPATH VEILERDOC=$VEILERDOC VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS="${USEFLAGS[*]}" ../MOONBUILD build > /dev/null
+                       VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERDOC=$VEILERDOC VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS="${USEFLAGS[*]}" ../MOONBUILD build > /dev/null
                     else
-                        VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX USEFLAGS="$BUFFER" VEILERDBPATH=$VEILERDBPATH VEILERDOC=$VEILERDOC VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS="${USEFLAGS[*]}" ../MOONBUILD build
+                        VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERDOC=$VEILERDOC VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS="${USEFLAGS[*]}" ../MOONBUILD build
                     fi
                 fi
             popd &> /dev/null
@@ -447,6 +460,7 @@ buildPackages(){
                         rm -f "$VEILERDEST/$currentfile"
                     done < "$VEILERDBPATH/local/${PKGNAME[$i]}/files"
                 fi
+                if [ ! -d $VEILERDBPATH/local ]; then mkdir -p $VEILERDBPATH/local; fi
                 cp -r "$VEILERDBPATH/sync/${PKGNAME[$i]}" "$VEILERDBPATH/local/"
                 source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
                 unset MOONBASEPKG MOONPKGNAME MOONPKGVERSION DESC SRC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE 
@@ -510,6 +524,7 @@ pop(){
 checkifallvisited(){
     if [ -f "$VEILERDBPATH/sync/$1/dependencies" ]; then
         while read dependency; do
+            if [ "${visiting[$dependency]}" == "yes" ]; then continue; fi
             if [ "${visited[$dependency]}" != "yes" ]; then return; fi
         done < "$VEILERDBPATH/sync/$1/dependencies"
     fi
@@ -564,6 +579,7 @@ resolvedeps(){
             push $PACKAGE
             while [ ${#STACK[@]} -gt 0 ]; do
                 CURRENTPACKAGE=${STACK[$((${#STACK[@]} - 1))]}
+                visiting[$CURRENTPACKAGE]="yes"
                 DEPS=()
                 if [ -f "$VEILERDBPATH/sync/$CURRENTPACKAGE/dependencies" ]; then
                     while read dependency; do
@@ -575,6 +591,9 @@ resolvedeps(){
                     push $DEPENDENCY
                     if [ "${visited[$DEPENDENCY]}" == "yes" ]; then pop && continue; fi
                     if [ ! -d "$VEILERDBPATH/local/$DEPENDENCY" ]; then
+                        if [ "${visiting["$DEPENDENCY"]}" == "yes" ]; then
+                            log_warn "Circular dependency detected >>> $CURRENTPACKAGE -> $DEPENDENCY -> $CURRENTPACKAGE"
+                        fi
                         break
                     fi
                     if [ "$(checkifinargs "$DEPENDENCY")" != "yes" ]; then
@@ -592,6 +611,7 @@ resolvedeps(){
                     RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
                 fi
                 if [ "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" ]; then
+                    visiting[$CURRENTPACKAGE]=""
                     visited[$CURRENTPACKAGE]="yes"
                 fi
             done
@@ -600,7 +620,13 @@ resolvedeps(){
         PACKAGES=( "${RESOLVEDPACKAGES[@]}" )
         makepkgarray "${PACKAGES[@]}"
     else
-        makepkgarray "$@"
+        for PACKAGE in "$@"; do
+            if [ "${visited[$PACKAGE]}" != "yes" ]; then
+                PACKAGES+=( "$PACKAGE" )
+            fi
+            visited[$PACKAGE]="yes"
+        done
+        makepkgarray "${PACKAGES[@]}"
         return
     fi
     # --- End dependency calculating ---
@@ -1065,10 +1091,10 @@ case $1 in
             set -e
             if [ -f db.tar.xz ]; then rm -f db.tar.xz; fi
             if [ "$VEILERQUIET" -eq 0 ]; then
-                wget "https://github.com/ilovetrees242/Veiler/raw/refs/heads/main/db.tar.xz"
+                wget -nv "https://github.com/ilovetrees242/Supplements/raw/refs/heads/main/Website/Packages/db.tar.xz"
                 tar -C "$VEILERDBPATH" --strip-components=1 -xvf db.tar.xz
             else
-                wget -q --show-progress "https://github.com/ilovetrees242/Veiler/raw/refs/heads/main/db.tar.xz"
+                wget -q --show-progress "https://github.com/ilovetrees242/Supplements/raw/refs/heads/main/Website/Packages/db.tar.xz"
                 tar -C "$VEILERDBPATH" --strip-components=1 -xf db.tar.xz
             fi
             set +e
