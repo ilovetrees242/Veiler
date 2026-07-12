@@ -29,16 +29,23 @@ Information related to configuration, installation or usage can be found at http
 # Basic usage:
 
 Install a package: `./Veiler unveil <PKG>`
+
 Uninstall a package: `./Veiler veil <PKG>`
+
 Search a package: `./Veiler search <PKG>`
+
 Sync: `./Veiler search <PKG>`
 
 # Basic options
 
 __--tests         :__ Run test suites
+
 __--documentation :__ Install documentation
+
 __--help          :__ Help
+
 __--quiet         :__ Quiet mode
+
 __--ask           :__ Confirmation prompts
 
 # Contributing
