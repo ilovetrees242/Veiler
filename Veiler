@@ -1092,10 +1092,10 @@ case $1 in
             if [ -f db.tar.xz ]; then rm -f db.tar.xz; fi
             if [ "$VEILERQUIET" -eq 0 ]; then
                 wget -nv "https://github.com/ilovetrees242/Supplements/raw/refs/heads/main/Website/Packages/db.tar.xz"
-                tar -C "$VEILERDBPATH" --strip-components=1 -xvf db.tar.xz
+                tar -C "$VEILERDBPATH/sync" --strip-components=1 -xvf db.tar.xz
             else
                 wget -q --show-progress "https://github.com/ilovetrees242/Supplements/raw/refs/heads/main/Website/Packages/db.tar.xz"
-                tar -C "$VEILERDBPATH" --strip-components=1 -xf db.tar.xz
+                tar -C "$VEILERDBPATH/sync" --strip-components=1 -xf db.tar.xz
             fi
             set +e
             trap - ERR
