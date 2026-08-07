@@ -102,6 +102,7 @@ USEFLAGS=""
 GLOBALUSEFLAGS=()
 LOCALUSEFLAGS=()
 STACK=()
+COUNTER=0
 
 if [ $VEILERCUSTOMCONF -eq 0 -a -s $VEILERCONFIGPATH ]; then 
     . /etc/Veiler/veiler.conf
@@ -335,16 +336,16 @@ checkDiskSpace(){
     if [ $VEILERERREXIT -eq 0 ]; then
        if [ $VEILERDOC -eq 1 ]; then
            if [ $AVAILSPACE -le $((TOTALINSTSIZE+TOTALDSR)) ]; then
-               log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-               log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((TOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
-               log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+               log_err noexit "Insufficient disk space!"
+               log_err noexit "Required ${YELLOW}> $(((TOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
+               log_err noexit "Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
                exit 1
            fi
        else
            if [ $AVAILSPACE -le $((WODOCTOTALINSTSIZE+TOTALDSR)) ]; then
-               log_err noexit "${RED}ERROR >>>${WHITE} Insufficient disk space!"
-               log_err noexit "${RED}ERROR >>>${WHITE} Required ${YELLOW}> $(((WODOCTOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
-               log_err noexit "${RED}ERROR >>>${WHITE} Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
+               log_err noexit "Insufficient disk space!"
+               log_err noexit "Required ${YELLOW}> $(((WODOCTOTALINSTSIZE+TOTALDSR)/1024/1024)) MiB <${NC} "
+               log_err noexit "Available ${YELLOW}> $((AVAILSPACE/1024/1024)) MiB <${NC}"
                exit 1
            fi
        fi
@@ -366,7 +367,7 @@ verifyChecksums(){
                     sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for base package ${RED}>>>${WHITE} $MOONPKGNAME for the package ${RED}>>>${WHITE}${PKGNAME[$i]}"
                 popd &> /dev/null
                 if [ $VEILERSKIPCLEAN -eq 0 ]; then
-                    tar -cf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz" "build-$MOONPKGNAME-$MOONPKGVERSION"  || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the base package ${RED}>>>${WHITE}$MOONPKGNAME" 
+                    tar -cJf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.xz" "build-$MOONPKGNAME-$MOONPKGVERSION" || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the base package ${RED}>>>${WHITE}$MOONPKGNAME" 
                 fi
             fi  
             unset MOONBASEPKG
@@ -620,6 +621,7 @@ resolvedeps(){
         PACKAGES=( "${RESOLVEDPACKAGES[@]}" )
         makepkgarray "${PACKAGES[@]}"
     else
+        PACKAGES=()
         for PACKAGE in "$@"; do
             if [ "${visited[$PACKAGE]}" != "yes" ]; then
                 PACKAGES+=( "$PACKAGE" )
@@ -636,26 +638,26 @@ makepkgarray(){
     PKGNAME=()
     while [ $# -gt 0 ]; do
         if [ -f $VEILERDBPATH/sync/$1/info ]; then
-            local BUFFERPKGVERSION="$(sed -n 's/^MOONPKGVERSION=//; s/"$//; s/^"//p' $VEILERDBPATH/sync/$1/info)"
-            local BUFFERPKGNAME="$(sed -n 's/^MOONPKGNAME=//; s/"$//; s/^"//p' $VEILERDBPATH/sync/$1/info)"
+            source "$VEILERDBPATH/sync/$1/info"
+            unset SRC MOONPKG INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPC DOWNLOADSIZE EXTENSION DESC
         fi
-        if [ -z "$BUFFERPKGVERSION" -a -z "$BUFFERPKGNAME" ]; then
+        if [ -z "$MOONPKGVERSION" -a -z "$MOONPKGNAME" ]; then
             log_warn "No valid information related to ${YELLOW}$1${WHITE} could be found. Skipping this package..."
             shift
             continue
-        elif [ -z "$BUFFERPKGVERSION" ]; then
+        elif [ -z "$MOONPKGVERSION" ]; then
             log_warn "No valid version could be found for ${YELLOW}$1${WHITE}. Skipping this package..." 
             shift
             continue
-        elif [ -z "$BUFFERPKGNAME" ]; then
+        elif [ -z "$MOONPKGNAME" ]; then
             log_warn "No valid name could be found for ${YELLOW}$1${WHITE}. Skipping this package..."
             shift
             continue
         fi
-        PKGVERSION+=( "$BUFFERPKGVERSION" )
-        PKGNAME+=( "$BUFFERPKGNAME" )
-        BUFFERPKGVERSION=
-        BUFFERPKGNAME=
+        PKGVERSION+=( "$MOONPKGVERSION" )
+        PKGNAME+=( "$MOONPKGNAME" )
+        MOONPKGVERSION=
+        MOONPKGNAME=
         shift
     done
 }
@@ -734,11 +736,39 @@ case $1 in
         fi
         play_animation "$(log_info activity "Checking if packages exist")"
         sleep 0.1
+        PACKAGES=()
         for PACKAGE in "$@"; do
-            if [ ! -d "$VEILERDBPATH/sync/$PACKAGE" ]; then veiler_stop_animation ; log_err "The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database"; fi
+            CONT=0
+            if [ ! -d "$VEILERDBPATH/sync/$PACKAGE" ]; then 
+                BUFFER=$(grep -R "$PACKAGE" $VEILERDBPATH/sync | grep "aliases")
+                for ALIAS in $BUFFER; do
+                    if [ "$PACKAGE" == "$(echo $ALIAS | sed 's/.*://')" ]; then
+                        PACKAGES+=("$(echo $ALIAS | sed 's/.*sync\///; s/\/.*//')")
+                        CONT=1
+                    fi
+                done
+                if [ $CONT -eq 1 ]; then continue; fi
+                veiler_stop_animation 
+                log_err noexit "The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database"
+                BUFFER=$(ls "$VEILERDBPATH/sync" | grep "$PACKAGE")
+                COUNTER=1
+                if [ -n "$BUFFER" ]; then
+                    log_info tip "Did you mean: "
+                    for MATCH in $BUFFER; do
+                        if [ $COUNTER -ge 7 ]; then
+                            echo -e "\n${BLUE}+$(($(printf "%s\n" "$BUFFER" | wc -l) - $((COUNTER - 1))))${WHITE} More"
+                            exit 1
+                        fi
+                        ((COUNTER++))
+                        echo -e "  ${WHITE}$MATCH${NC}"
+                    done
+                fi
+                exit 1
+            fi
+            PACKAGES+=( "$PACKAGE" )
         done
         veiler_stop_animation
-        resolvedeps "$@"
+        resolvedeps ${PACKAGES[@]}
         echo -ne "\n${YELLOW}Packages to be installed ${GRAY}(${#PKGNAME[@]}): ${NC}"
         for((i=0; i < ${#PKGNAME[@]}; i++)){
             if [ -f $VEILERDBPATH/local/"${PKGNAME[$i]}"/info -a -n "${PKGNAME[$i]}" ]; then
@@ -819,12 +849,40 @@ case $1 in
         checkifroot
         play_animation "$(log_info activity "Checking if packages exist")"
         sleep 0.1
+        PACKAGES=()
         for PACKAGE in "$@"; do
-            if [ ! -d "$VEILERDBPATH/sync/$PACKAGE" ]; then veiler_stop_animation; log_err "The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database.${NC}"; fi
+            CONT=0
+            if [ ! -d "$VEILERDBPATH/sync/$PACKAGE" ]; then 
+                BUFFER=$(grep -R "$PACKAGE" $VEILERDBPATH/sync | grep "aliases")
+                for ALIAS in $BUFFER; do
+                    if [ "$PACKAGE" == "$(echo $ALIAS | sed 's/.*://')" ]; then
+                        PACKAGES+=("$(echo $ALIAS | sed 's/.*sync\///; s/\/.*//')")
+                        CONT=1
+                    fi
+                done
+                if [ $CONT -eq 1 ]; then continue; fi
+                veiler_stop_animation 
+                log_err noexit "The requested package ${YELLOW}$PACKAGE${WHITE} could not be found on the database"
+                BUFFER=$(ls "$VEILERDBPATH/sync" | grep "$PACKAGE")
+                COUNTER=1
+                if [ -n "$BUFFER" ]; then
+                    log_info tip "Did you mean: "
+                    for MATCH in $BUFFER; do
+                        if [ $COUNTER -ge 7 ]; then
+                            echo -e "\n${BLUE}+$(($(printf "%s\n" "$BUFFER" | wc -l) - $((COUNTER - 1))))${WHITE} More"
+                            exit 1
+                        fi
+                        ((COUNTER++))
+                        echo -e "  ${WHITE}$MATCH${NC}"
+                    done
+                fi
+                exit 1
+            fi
+            PACKAGES+=( "$PACKAGE" )
         done
         sleep 0.1
         veiler_stop_animation
-        makepkgarray $@
+        makepkgarray ${PACKAGES[@]}
         for PACKAGE in ${PKGNAME[@]}; do
             SPACEBUFFER=$(sed -n 's/^INSTALLEDSIZE=//p' $VEILERDBPATH/sync/$PACKAGE/info)
             SPACEBUFFER="$(echo $SPACEBUFFER | sed 's/"//g')"
@@ -991,7 +1049,8 @@ case $1 in
 		echo -e "${WHITE}help       : Displays this output${NC}"
         echo -e "${WHITE}version    : Display package manager version${NC}"
         echo -e "${WHITE}info       : Display information about installed packages${NC}"
-        echo -e "${WHITE}rmpkg      : Removes ${ALL}ALL${WHITE} the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
+        echo -e "${WHITE}dumpvars   : ${WHITE}Print all the variables the package manager is going to work with.${NC}"
+        echo -e "${WHITE}rmpkg      : Removes ${RED}ALL${WHITE} the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
         echo -e "${WHITE}clearcache : Remove ${RED}EVERYTHING${WHITE} in the cache directory of the package manager.${NC}"
         echo -e "${WHITE}pkgs       : ${WHITE}Get number of all packages${NC}"
         echo -e "${WHITE}list       : ${WHITE}List all packages installed${NC}"
@@ -1004,7 +1063,7 @@ case $1 in
             echo " \ \/ /  | ----| | | | |_  | ----|  | |    "
             echo "  \__/   |_____  |_| |___| |_____   |_|    "
             echo -e "${NC}"
-            echo -e "${YELLOW}Veiler ${WHITE}version 2.1.1${NC}"
+            echo -e "${YELLOW}Veiler ${WHITE}version 2.3.1${NC}"
     ;;
     search)
         shift
@@ -1148,6 +1207,13 @@ case $1 in
     ;;
     list) 
         printf "%s\n" "$(find $VEILERDBPATH/local -type d | sed '1d' | sed 's/.*local\///')"
+    ;;
+    dumpvars)
+        echo -e "${YELLOW}DB Path: ${WHITE} $VEILERDBPATH"
+        echo -e "${YELLOW}Cache Path: ${WHITE} $VEILERCACHEPATH"
+        echo -e "${YELLOW}Prefix: ${WHITE} $VEILERPREFIX"
+        echo -e "${YELLOW}Destdir: ${WHITE} $VEILERDEST"
+        echo -e "${BLUE}Repistory: ${WHITE} $PKGREPO"
     ;;
 	*)
         if [ -z $1 ]; then 
