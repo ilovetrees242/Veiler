@@ -367,7 +367,7 @@ verifyChecksums(){
                     sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for base package ${RED}>>>${WHITE} $MOONPKGNAME for the package ${RED}>>>${WHITE}${PKGNAME[$i]}"
                 popd &> /dev/null
                 if [ $VEILERSKIPCLEAN -eq 0 ]; then
-                    tar -cJf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.xz" "build-$MOONPKGNAME-$MOONPKGVERSION" || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the base package ${RED}>>>${WHITE}$MOONPKGNAME" 
+                    tar -cf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz" "build-$MOONPKGNAME-$MOONPKGVERSION" || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the base package ${RED}>>>${WHITE}$MOONPKGNAME" 
                 fi
             fi  
             unset MOONBASEPKG
