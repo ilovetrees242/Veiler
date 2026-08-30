@@ -25,6 +25,9 @@ Useflags change how the package is built and installed, or it enables you to use
 -ZLIB
 -ZSTD
 --- ENABLE  FLAGS ---
++ACL
++ATTR
++BZIP2
 +C++
 +CURSES
 +DEBUG
@@ -49,3 +52,6 @@ Useflags change how the package is built and installed, or it enables you to use
 +SYSTEMD
 +UNWIND
 +VALGRIND
++WAYLAND
++X
++ZLIB

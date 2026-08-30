@@ -46,14 +46,14 @@ while [ $# -gt 0 ]; do
             OPTIONS+=($1)
             case $1 in
                 --with-dest)
-                    if [ -n $2 ]; then
-                        OPTIONS+=($2); shift
+                    if [ -n "$2" ]; then
+                        OPTIONS+=("$2"); shift
                     else
                         log_err "The option ${GRAY}--with-dest${WHITE} requires an argument!"
                     fi
                 ;;
                 --config)
-                    if [ -z $2 ]; then
+                    if [ -z "$2" ]; then
                         log_err "The option ${GRAY}--config${WHITE} requires a valid argument!"
                     elif [ $(echo $2 | cut -c1) != "/" ]; then
                         log_err "The option ${GRAY}--config${WHITE} requires an absolute path!"
@@ -140,18 +140,6 @@ SIZEBUFFER=0
 
 TRAPSET=0
 
-if [ ${VEILERDEST:0:1} != "/" ]; then
-    log_err "DEST path must be an absolute path."
-elif [ ${VEILERCACHEPATH:0:1} != "/" ]; then
-    log_err "Cache path must be absolute."
-elif [ ${VEILERPREFIX:0:1} != "/" ]; then
-    log_err "Prefix must be absolute!"
-elif [ ${VEILERDBPATH:0:1} != "/" ]; then
-    log_err "DB path must be absolute."
-fi
-if [ ! "$(command -v su)" ]; then
-    log_warn "SU Command not found. Please install shadow package or use --no-root option."
-fi
 
 trap 'veiler_stop_animation' TERM 
 trap 'echo -e "\n${YELLOW}Interrupted${NC}"; veiler_stop_animation; exit 1' INT
@@ -683,7 +671,7 @@ for((i=0; i < ${#OPTIONS[@]}; i++)){
             if [ $VEILERONLYBUILD -eq 0 ]; then VEILERONLYBUILD=1; else log_err "Build only mode already enabled!"; fi
         ;;
         --no-root)
-            if [ $VEILERNOROOT -eq 0 ]; then VEILERNOROOT=1; else log_err "No root alreay enabled!"; fi
+            if [ $VEILERNOROOT -eq 0 ]; then VEILERNOROOT=1; else log_err "No root already enabled!"; fi
         ;;
         --with-dest)
             VEILERDEST=${OPTIONS[$((i+1))]}; ((i++))
@@ -714,6 +702,21 @@ for((i=0; i < ${#OPTIONS[@]}; i++)){
         ;;
     esac    
 }
+
+if [ ${VEILERDEST:0:1} != "/" ]; then
+    log_err "DEST path must be an absolute path."
+elif [ ${VEILERCACHEPATH:0:1} != "/" ]; then
+    log_err "Cache path must be absolute."
+elif [ ${VEILERPREFIX:0:1} != "/" ]; then
+    log_err "Prefix must be absolute!"
+elif [ ${VEILERDBPATH:0:1} != "/" ]; then
+    log_err "DB path must be absolute."
+fi
+
+if [ ! "$(command -v su)" -a $VEILERNOROOT -eq 0 ]; then
+    log_warn "SU Command not found. Please install shadow package or use --no-root option."
+fi
+
 # -- End option parsing --
 if [ $VEILERSKIPINST -eq 1 ]; then
     set -- $(checkIfAlreadyInstalled ${ARGUMENTS[@]})
@@ -727,10 +730,6 @@ case $1 in
             log_err "Nothing to install."
         fi
         checkifroot
-        BUFFER=$(echo $VEILERDEST | cut -c1 )
-        if [ $BUFFER != "/" ]; then
-            log_err "Please provide an absolute path for ${GRAY}--with-dest"
-        fi
         if [ $VEILERONLYBUILD -eq 0 ]; then
             log_info notice "Packages will be installed in $VEILERDEST"
         fi

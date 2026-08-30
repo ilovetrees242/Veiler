@@ -9,8 +9,15 @@ This was made for my use mostly, its still under development so some packages mi
 * Report any found bugs in issues
 
 # Using this with LFS
-First of all, this won't work before chapter 8 because all the packages are cross compiled. By default Veiler builds all the packages for the current system and uses any toolchain which is found.
-This package manager uses the versions provided in the LFS book and build commands from the latest LFS stable book.
+
+First of all, this won't work before chapter 8 because all the packages are cross compiled. By default Veiler builds all the packages for the current system and the toolchain which is going to be used is determined by the build system of the packages. This package manager uses the versions provided in the LFS book and build commands from the latest LFS stable book.
+And also, just after reaching chapter 8 you won't be able to use the package manager immediately. You would need to install wget on the LFS system either from source ( recommended ) or binary. Then, you need to download a release or the git version of the package manager and transfer it to the LFS system and run the installation script there.
+Finally, you would need to use the `--no-root` option or set `$VEILERNOROOT` to 1 in `/etc/Veiler/veiler.conf` unless the shadow package is not installed. This is because `su` command would not be available which may cause issues. So you use the no root option but still be root.
+Some packages have circular dependencies. Since the package manager cannot resolve circular dependencies ( it can only detect ), you would have to manually build the required packages properly in order to solve the dependency chain.
+
+# Using with BLFS
+
+On a BLFS system where the base LFS system is complete, you can use Veiler as long as the dependencies. Using on BLFS is less pain because the core system is already built
 
 # Using this with normal distros
 If you use this with normal distros then you will have 2 package managers, which may confuse eachother. Although you can install programs in /usr/local as it is not tracked by the distros package manager
