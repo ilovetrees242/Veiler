@@ -398,20 +398,28 @@ buildPackages(){
                 cd "build-$MOONPKGNAME-$MOONPKGVERSION"
             fi
             if [ $VEILERSKIPCLEAN -eq 0 ]; then
+                TARFLAGS=""
                 if [ -d "$MOONPKG" ]; then rm -rf "$MOONPKG"; fi
                 if [ $VEILERQUIET -eq 1 ]; then
-                    if [ $VEILERNOROOT -eq 0 ]; then
-                        su -c "mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG --strip-components=1" veiler-build-user
+                    if [ "$(tar -tf "$MOONPKG".* | cut -d/ -f1 | sort -u | wc -l)" == "1" ]; then
+                        TARFLAGS="--strip-components=1"
                     else
-                        mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG --strip-components=1
+                        TARFLAGS="--strip-components=0"
+                    fi
+
+                    if [ $VEILERNOROOT -eq 0 ]; then
+                        su -c "mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS" veiler-build-user
+                    else
+                        mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS
                     fi
                 else
                     if [ $VEILERNOROOT -eq 0 ]; then
-                        su -c "mkdir -p $MOONPKG && tar -xvf "$MOONPKG".* -C $MOONPKG --strip-components=1" veiler-build-user
+                        su -c "mkdir -p $MOONPKG && tar -xvf "$MOONPKG".* -C $MOONPKG $TARFLAGS" veiler-build-user
                     else
-                        mkdir -p $MOONPKG && tar -xvf "$MOONPKG".* -C $MOONPKG --strip-components=1
+                        mkdir -p $MOONPKG && tar -xvf "$MOONPKG".* -C $MOONPKG $TARFLAGS
                     fi
                 fi
+                unset TARFLAGS
             fi
             source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
             unset DESC SRC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE 
