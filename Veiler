@@ -49,7 +49,7 @@ while [ $# -gt 0 ]; do
                     if [ -n "$2" ]; then
                         OPTIONS+=("$2"); shift
                     else
-                        log_err "The option ${GRAY}--with-dest${WHITE} requires an argument!"
+                        log_err "The option ${GRAY}--with-dest${WHITE} requires an argument!$"
                     fi
                 ;;
                 --config)
@@ -62,6 +62,12 @@ while [ $# -gt 0 ]; do
                     fi
                     OPTIONS+=($2); shift
                 ;;
+                --exclude-deps)
+                    if [ -n "$2" ]; then
+                        OPTIONS+=("$2"); shift
+                    else
+                        log_err "The option ${GRAY}--exclude-deps${WHITE} requires an argument!$"
+                    fi
             esac
         ;;
         *)
@@ -116,6 +122,7 @@ declare -A visited visiting
 PACKAGES=()
 RESOLVEPACKAGES=()
 DEPS=()
+EXCLUDEDDEPS=()
 PKGNAME=()
 PKGVERSION=()
 
@@ -282,9 +289,9 @@ getSources(){
                 fi
             fi      
             if [ -s $VEILERDBPATH/sync/${PKGNAME[$i]}/additionaldownloads ]; then
-                log_info imp "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Downloading additional files for the package ${BLUE}>>>${WHITE} ${PKGNAME[$i]} ${BLUE}<<< $(wc -l $VEILERDBPATH/sync/${PKGNAME[$i]}/additionaldownloads | sed 's/\s.*//')"
                 while read filename; do
                     if [ ! -f "$(echo $filename | sed 's/.*\///')" ]; then
+                        log_info imp "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Downloading additional file ${GRAY}($filename)${WHITE}for the package ${BLUE}>>>${WHITE} ${PKGNAME[$i]} ${BLUE}<<< ${WHITE}$(wc -l $VEILERDBPATH/sync/${PKGNAME[$i]}/additionaldownloads | sed 's/\s.*//')${NC}"
                        if [ $VEILERQUIET -eq 1 ]; then
                            wget -q --show-progress $filename
                        else
@@ -352,10 +359,10 @@ verifyChecksums(){
                 unset MOONPKG SRC REQDSKSPC INSTALLEDSIZE WODOCINSTALLEDSIZE DOWNLOADSIZE 
                 pushd "build-"$MOONPKGNAME"-"$MOONPKGVERSION"" &> /dev/null
                     if [ $? -eq 1 ]; then log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to enter the build directory for the base package ${RED}>>>${WHITE} $MOONPKGNAME for the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"; fi
-                    sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for base package ${RED}>>>${WHITE} $MOONPKGNAME for the package ${RED}>>>${WHITE}${PKGNAME[$i]}"
+                    sha256sum -c --quiet integrity.sha256 || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to verify package integrity for base package ${RED}>>>${WHITE} $MOONPKGNAME for the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"
                 popd &> /dev/null
                 if [ $VEILERSKIPCLEAN -eq 0 ]; then
-                    tar -cf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz" "build-$MOONPKGNAME-$MOONPKGVERSION" || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the base package ${RED}>>>${WHITE}$MOONPKGNAME" 
+                    tar -cf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz" "build-$MOONPKGNAME-$MOONPKGVERSION" || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE}Failed to archive the base package ${RED}>>> ${WHITE}$MOONPKGNAME for the package ${RED}>>> ${PKGNAME[@]}${NC}" 
                 fi
             fi  
             unset MOONBASEPKG
@@ -387,6 +394,7 @@ buildPackages(){
                     if [ $(echo $pkg | sed 's/->.*//; s/^s//g') == "${PKGNAME[$i]}" ]; then
                         USEFLAGS=( "$(echo $pkg | sed "s/.*->//; s/^\s*//")" )
                         USEFLAGS=( $USEFLAGS )
+                        break;
                     fi
                 done < /etc/Veiler/package.use
             fi
@@ -397,30 +405,31 @@ buildPackages(){
                 tar xf "build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz"
                 cd "build-$MOONPKGNAME-$MOONPKGVERSION"
             fi
-            if [ $VEILERSKIPCLEAN -eq 0 ]; then
-                TARFLAGS=""
-                if [ -d "$MOONPKG" ]; then rm -rf "$MOONPKG"; fi
-                if [ $VEILERQUIET -eq 1 ]; then
-                    if [ "$(tar -tf "$MOONPKG".* | cut -d/ -f1 | sort -u | wc -l)" == "1" ]; then
-                        TARFLAGS="--strip-components=1"
-                    else
-                        TARFLAGS="--strip-components=0"
-                    fi
 
-                    if [ $VEILERNOROOT -eq 0 ]; then
-                        su -c "mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS" veiler-build-user
-                    else
-                        mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS
-                    fi
-                else
-                    if [ $VEILERNOROOT -eq 0 ]; then
-                        su -c "mkdir -p $MOONPKG && tar -xvf "$MOONPKG".* -C $MOONPKG $TARFLAGS" veiler-build-user
-                    else
-                        mkdir -p $MOONPKG && tar -xvf "$MOONPKG".* -C $MOONPKG $TARFLAGS
-                    fi
-                fi
-                unset TARFLAGS
+            if [[ -d "$MOONPKG" && $VEILERSKIPCLEAN -eq 0 ]]; then rm -rf "$MOONPKG"; fi
+
+            TARFLAGS=""
+            if [ "$(tar -tf "$MOONPKG".* | cut -d/ -f1 | sort -u | wc -l)" == "1" ]; then
+                TARFLAGS="--strip-components=1"
+            else
+                TARFLAGS="--strip-components=0"
             fi
+            if [ $VEILERQUIET -eq 1 ]; then
+
+                if [ $VEILERNOROOT -eq 0 ]; then
+                    su -c "mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS" veiler-build-user
+                else
+                    mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS
+                fi
+            else
+                if [ $VEILERNOROOT -eq 0 ]; then
+                    su -c "mkdir -p $MOONPKG && tar -xvf "$MOONPKG".* -C $MOONPKG $TARFLAGS" veiler-build-user
+                else
+                    mkdir -p $MOONPKG && tar -xvf "$MOONPKG".* -C $MOONPKG $TARFLAGS
+                fi
+            fi
+            unset TARFLAGS
+            
             source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
             unset DESC SRC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE 
             if [ -n "$MOONBASEPKG" ]; then
@@ -536,6 +545,13 @@ checkifinargs(){
     done
     echo ""
 }
+checkIfExcluded(){
+    for PKG in ${EXCLUDEDDEPS[@]}; do
+        if [ "$PKG" == "$1" ]; then return 1; fi
+    done
+    return 0;
+}
+checkIfExcluded "test"
 resolvedeps(){
     # --- Start dependency calculating ---
     if [ $VEILERSKIPDEPS -eq 0 ]; then
@@ -556,7 +572,12 @@ resolvedeps(){
                      if [ -s "$VEILERDBPATH/sync/$PACKAGE/optdependencies" ]; then
                          while read pkg_line; do
                              if [ "$FLAG" == "$(echo $pkg_line | sed 's/ .*//')" ]; then
-                                 PACKAGES+=( $(echo $pkg_line | sed 's/.* //' ) )
+                                 for pkg in "$(echo $pkg_line | sed 's/.* //')"; do
+                                     checkIfExcluded $pkg
+                                     if [[ ! -d "$VEILERDBPATH/local/$pkg" && $? -ne 1 ]]; then
+                                        PACKAGES+=( $(echo $pkg_line | sed 's/.* //' ) )
+                                     fi
+                                done
                              fi
                          done < "$VEILERDBPATH/sync/$PACKAGE/optdependencies"
                      fi
@@ -601,11 +622,13 @@ resolvedeps(){
                     pop
                 done
                 if [[ ! -d "$VEILERDBPATH/local/$CURRENTPACKAGE" && "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
-                    RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
+                    checkIfExcluded $CURRENTPACKAGE
+                    [ $? -eq 0 ] && RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
                     visited[$CURRENTPACKAGE]="yes"
                 fi
                 if [[ "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" && "${visited[$CURRENTPACKAGE]}" != "yes" ]]; then
-                    RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
+                    checkIfExcluded $CURRENTPACKAGE
+                    [ $? -eq 0 ] && RESOLVEDPACKAGES+=("$CURRENTPACKAGE")
                 fi
                 if [ "$(checkifallvisited "$CURRENTPACKAGE")" == "yes" ]; then
                     visiting[$CURRENTPACKAGE]=""
@@ -701,6 +724,14 @@ for((i=0; i < ${#OPTIONS[@]}; i++)){
         ;;
         --no-errexit)
             if [ $VEILERERREXIT -eq 0 ]; then VEILERERREXIT=1; else log_err "Not exiting upon errors already enabled!"; fi
+        ;;
+        --exclude-deps)
+            IFS=,
+            for PKG in ${OPTIONS[$((i+1))]}; do
+                EXCLUDEDDEPS+=("$PKG")
+            done
+            ((i++))
+            IFS=
         ;;
         --config)
             ((i++))
@@ -1014,7 +1045,15 @@ case $1 in
             log_err "No package provided!"
         fi
         for((i=1; i <= $#; i++)){
+            CONT=0
             if [ ! -d "$VEILERDBPATH/local/${!i}" ]; then
+                BUFFER=$(grep -R "$PACKAGE" $VEILERDBPATH/sync | grep "aliases")
+                for ALIAS in $BUFFER; do
+                    if [ "$PACKAGE" == "$(echo $ALIAS | sed 's/.*://')" ]; then
+                        PACKAGES+=("$(echo $ALIAS | sed 's/.*sync\///; s/\/.*//')")
+                        CONT=1      
+                    fi
+                done
                 log_warn "${!i} is not installed."
             else
                 PACKAGES+=( ${!i} )
@@ -1045,6 +1084,7 @@ case $1 in
         echo -e "${GRAY}--megabytes${NC}${WHITE}     : Show size in megabytes instead of kilobytes${NC}"
         echo -e "${GRAY}--skip-integrity${NC}${WHITE}: Do not verify package integrity ( unsafe and can lead to security issues and building corrupted packages )${NC}"
         echo -e "${GRAY}--no-errexit${NC}${WHITE}    : Do not exit upon an error WHILE building the packages ( might cause you to have broken packages installed lol )${NC}"
+        echo -e "${GRAY}--exclude-deps PKG1,PKG2,...${NC}${WHITE}  : Do not install depedencies in the comma seperated list argument ( lol why you leave them )${NC}"
         echo -e "${GRAY}--config <PATH>${NC}${WHITE} : Use a custom configuration file instead of the default one." 
 		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
         echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /${NC}"
@@ -1113,7 +1153,7 @@ case $1 in
             for((i=1; i <= $#; i++)){
                 PACKAGES=$(ls $VEILERDBPATH/sync/)
                 for PACKAGE in $PACKAGES; do
-                    if [ -f $VEILERDBPATH/sync/$PACKAGE/info ]; then 
+                    if [ -s $VEILERDBPATH/sync/$PACKAGE/info ]; then 
                         source $VEILERDBPATH/sync/$PACKAGE/info 
                         FOUNDPACKAGES[$COUNT]=$(echo $MOONPKGNAME | grep "${!i}")
                         FOUNDPACKAGESDESC[$COUNT]=$(echo $DESC | grep "${!i}")
@@ -1220,7 +1260,30 @@ case $1 in
         echo -e "${YELLOW}Cache Path: ${WHITE} $VEILERCACHEPATH"
         echo -e "${YELLOW}Prefix: ${WHITE} $VEILERPREFIX"
         echo -e "${YELLOW}Destdir: ${WHITE} $VEILERDEST"
-        echo -e "${BLUE}Repistory: ${WHITE} $PKGREPO"
+        echo -e "${BLUE}Repository: ${WHITE} $PKGREPO"
+    ;;
+    stat)
+        TOTALINSTALLEDSIZE=0
+        TOTALINSTALLEDFILES=0
+
+        for PKG in $VEILERDBPATH/local/*; do 
+            source $PKG/info
+            ((TOTALINSTALLEDSIZE=$TOTALINSTALLEDSIZE + ${INSTALLEDSIZE:-0}))
+            if [ -s $PKG/files ]; then ((TOTALINSTALLEDFILES=$TOTALINSTALLEDFILES + $(wc -l $PKG/files | sed 's/\s.*//'))); fi
+        done
+        unset MOONPKGNAME MOONPKG MOONPKGVERSION SRC DESC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPC DOWNLOADSIZE
+
+        echo -e "${WHITE}Total installed packages: ${YELLOW}$($0 pkgs)${NC}"
+
+        if [ $VEILERMBE -eq 1 ]; then
+            ((TOTALINSTALLEDSIZE=TOTALINSTALLEDSIZE/1024/1024))
+            echo -e "${WHITE}Total installed packages size: ${YELLOW}$TOTALINSTALLEDSIZE${NC} MiB"
+        else
+            ((TOTALINSTALLEDSIZE=TOTALINSTALLEDSIZE/1024))
+            echo -e "${WHITE}Total installed packages size: ${YELLOW}$TOTALINSTALLEDSIZE${NC} KiB"
+        fi
+
+        echo -e "${WHITE}Total installed files: ${YELLOW}$TOTALINSTALLEDFILES${NC}"
     ;;
 	*)
         if [ -z $1 ]; then 
