@@ -1096,11 +1096,13 @@ case $1 in
 		echo -e "${WHITE}help       : Displays this output${NC}"
         echo -e "${WHITE}version    : Display package manager version${NC}"
         echo -e "${WHITE}info       : Display information about installed packages${NC}"
-        echo -e "${WHITE}dumpvars   : ${WHITE}Print all the variables the package manager is going to work with.${NC}"
+        echo -e "${WHITE}dumpvars   : Print all the variables the package manager is going to work with.${NC}"
         echo -e "${WHITE}rmpkg      : Removes ${RED}ALL${WHITE} the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
         echo -e "${WHITE}clearcache : Remove ${RED}EVERYTHING${WHITE} in the cache directory of the package manager.${NC}"
-        echo -e "${WHITE}pkgs       : ${WHITE}Get number of all packages${NC}"
-        echo -e "${WHITE}list       : ${WHITE}List all packages installed${NC}"
+        echo -e "${WHITE}pkgs       : Get number of all packages${NC}"
+        echo -e "${WHITE}list       : List all packages installed${NC}"
+        echo -e "${WHITE}stat       : Display information about all the installed packages${NC}"
+        echo -e "${WHITE}   -> upd  : Update the stat file manually${NC}"
         echo -e "${YELLOW}Note: ${WHITE}See https://ilovetrees242.github.io/DevHelp/Website/Veiler.html for detailed information${NC}"
 	;;
     version)
@@ -1256,34 +1258,47 @@ case $1 in
         printf "%s\n" "$(find $VEILERDBPATH/local -type d | sed '1d' | sed 's/.*local\///')"
     ;;
     dumpvars)
-        echo -e "${YELLOW}DB Path: ${WHITE} $VEILERDBPATH"
-        echo -e "${YELLOW}Cache Path: ${WHITE} $VEILERCACHEPATH"
-        echo -e "${YELLOW}Prefix: ${WHITE} $VEILERPREFIX"
-        echo -e "${YELLOW}Destdir: ${WHITE} $VEILERDEST"
-        echo -e "${BLUE}Repository: ${WHITE} $PKGREPO"
+        echo -e "${YELLOW}DB Path: ${WHITE}$VEILERDBPATH"
+        echo -e "${YELLOW}Cache Path: ${WHITE}$VEILERCACHEPATH"
+        echo -e "${YELLOW}Prefix: ${WHITE}$VEILERPREFIX"
+        echo -e "${YELLOW}Destdir: ${WHITE}$VEILERDEST"
+        echo -e "${GRAY}Global useflags: ${WHITE}$USEFLAGS"
+        echo -e "${BLUE}Repository: ${WHITE}$PKGREPO"
     ;;
     stat)
-        TOTALINSTALLEDSIZE=0
-        TOTALINSTALLEDFILES=0
+        shift
 
-        for PKG in $VEILERDBPATH/local/*; do 
-            source $PKG/info
-            ((TOTALINSTALLEDSIZE=$TOTALINSTALLEDSIZE + ${INSTALLEDSIZE:-0}))
-            if [ -s $PKG/files ]; then ((TOTALINSTALLEDFILES=$TOTALINSTALLEDFILES + $(wc -l $PKG/files | sed 's/\s.*//'))); fi
-        done
-        unset MOONPKGNAME MOONPKG MOONPKGVERSION SRC DESC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPC DOWNLOADSIZE
+        STATFILE=$VEILERCACHEPATH/stat
 
-        echo -e "${WHITE}Total installed packages: ${YELLOW}$($0 pkgs)${NC}"
+        if [ "$1" == "upd" ]; then
+            log_info tip "Running ${GRAY}stat${WHITE} normally does not require root but running ${GRAY}stat upd${WHITE} does"
+            checkifroot
+            TOTALINSTALLEDSIZE=0
+            TOTALINSTALLEDFILES=0
+            for PKG in $VEILERDBPATH/local/*; do 
+                source $PKG/info
+                ((TOTALINSTALLEDSIZE=$TOTALINSTALLEDSIZE + ${INSTALLEDSIZE:-0}))
+                if [ -s $PKG/files ]; then ((TOTALINSTALLEDFILES=$TOTALINSTALLEDFILES + $(wc -l $PKG/files | sed 's/\s.*//'))); fi
+            done
+            unset MOONPKGNAME MOONPKG MOONPKGVERSION SRC DESC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPC DOWNLOADSIZE
 
-        if [ $VEILERMBE -eq 1 ]; then
-            ((TOTALINSTALLEDSIZE=TOTALINSTALLEDSIZE/1024/1024))
-            echo -e "${WHITE}Total installed packages size: ${YELLOW}$TOTALINSTALLEDSIZE${NC} MiB"
+            echo "$($0 pkgs)" > $STATFILE
+            echo "$TOTALINSTALLEDSIZE" >> $STATFILE
+            echo "$TOTALINSTALLEDFILES" >> $STATFILE
         else
-            ((TOTALINSTALLEDSIZE=TOTALINSTALLEDSIZE/1024))
-            echo -e "${WHITE}Total installed packages size: ${YELLOW}$TOTALINSTALLEDSIZE${NC} KiB"
-        fi
+            [ ! -s $STATFILE ] && log_info tip "Become root only for this operation" && checkifroot && $0 stat upd
+            echo -e "${WHITE}Total installed packages: ${YELLOW}$(sed -n '1p' $STATFILE)${NC}"
 
-        echo -e "${WHITE}Total installed files: ${YELLOW}$TOTALINSTALLEDFILES${NC}"
+            if [ $VEILERMBE -eq 1 ]; then
+                ((BUFFER=$(sed -n '2p' $STATFILE)/1024/1024))
+                echo -e "${WHITE}Total installed packages size: ${YELLOW}$BUFFER${NC} MiB"
+            else
+                ((BUFFER=$(sed -n '2p' $STATFILE)/1024))
+                echo -e "${WHITE}Total installed packages size: ${YELLOW}$BUFFER${NC} KiB"
+            fi
+
+            echo -e "${WHITE}Total installed files: ${YELLOW}$(sed -n '3p' $STATFILE)${NC}"
+        fi
     ;;
 	*)
         if [ -z $1 ]; then 
