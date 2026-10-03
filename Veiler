@@ -1046,18 +1046,21 @@ case $1 in
         fi
         for((i=1; i <= $#; i++)){
             CONT=0
-            if [ ! -d "$VEILERDBPATH/local/${!i}" ]; then
-                BUFFER=$(grep -R "$PACKAGE" $VEILERDBPATH/sync | grep "aliases")
+            if [ ! -d "$VEILERDBPATH/local/$1" ]; then
+                BUFFER=$(grep -R "$1" $VEILERDBPATH/sync | grep "aliases")
                 for ALIAS in $BUFFER; do
-                    if [ "$PACKAGE" == "$(echo $ALIAS | sed 's/.*://')" ]; then
+                    if [ "$1" == "$(echo $ALIAS | sed 's/.*://')" ]; then
                         PACKAGES+=("$(echo $ALIAS | sed 's/.*sync\///; s/\/.*//')")
-                        CONT=1      
+                        CONT=1
+                        break
                     fi
                 done
+                [ $CONT -eq 1 ] && continue
                 log_warn "${!i} is not installed."
             else
                 PACKAGES+=( ${!i} )
             fi
+            shift
         }
         for((i=0; i < ${#PACKAGES[@]}; i++)){
             if [ -f "$VEILERDBPATH/local/${PACKAGES[$i]}/info" ]; then
