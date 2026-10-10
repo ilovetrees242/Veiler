@@ -778,8 +778,7 @@ case $1 in
         for PACKAGE in "$@"; do
             CONT=0
             if [ ! -d "$VEILERDBPATH/sync/$PACKAGE" ]; then 
-                BUFFER=$(grep -R "$PACKAGE" $VEILERDBPATH/sync | grep "aliases")
-                for ALIAS in $BUFFER; do
+                for ALIAS in $(find $VEILERDBPATH/sync -name "aliases" | xargs grep "$PACKAGE"); do
                     if [ "$PACKAGE" == "$(echo $ALIAS | sed 's/.*://')" ]; then
                         PACKAGES+=("$(echo $ALIAS | sed 's/.*sync\///; s/\/.*//')")
                         CONT=1
@@ -873,6 +872,8 @@ case $1 in
             getPatches
             verifyChecksums 
             buildPackages
+            log_info imp "Running post package installation hooks"
+            $0 stat upd
             if [ $VEILERONLYBUILD -eq 1 ]; then
                 log_info notice "The package manager has finished building the packages, but has not installed them. Goodluck with whatever you are doing!"
                 log_info imp "The build directories can be found at $VEILERCACHEPATH"
@@ -891,8 +892,7 @@ case $1 in
         for PACKAGE in "$@"; do
             CONT=0
             if [ ! -d "$VEILERDBPATH/sync/$PACKAGE" ]; then 
-                BUFFER=$(grep -R "$PACKAGE" $VEILERDBPATH/sync | grep "aliases")
-                for ALIAS in $BUFFER; do
+                for ALIAS in $(find $VEILERDBPATH/sync -name "aliases" | xargs grep "$PACKAGE"); do
                     if [ "$PACKAGE" == "$(echo $ALIAS | sed 's/.*://')" ]; then
                         PACKAGES+=("$(echo $ALIAS | sed 's/.*sync\///; s/\/.*//')")
                         CONT=1
@@ -950,6 +950,8 @@ case $1 in
         fi
         log_info notice "Changing directory to $VEILERCACHEPATH..."
         uninstallPackages
+        log_info imp "Running post package uninstallation hooks"
+        $0 stat upd
 	;;
 	strengthen)
         checkifroot
@@ -1031,8 +1033,10 @@ case $1 in
             extractBuildTarballs 
             getSources 
             verifyChecksums 
-            buildPackages
-            if [ $VEILERONLYBUILD -eq 1 ]; then
+            buildPackages    
+            log_info imp "Running post package upgradation hooks"
+            $0 stat upd
+            if [ $VEILERO    NLYBUILD -eq 1 ]; then
                 log_info notice "The package manager has finished building the packages, but has not installed them. Goodluck with whatever you are doing!"
                 log_info imp "The build directories can be found at $VEILERCACHEPATH"
             fi
@@ -1047,8 +1051,7 @@ case $1 in
         for((i=1; i <= $#; i++)){
             CONT=0
             if [ ! -d "$VEILERDBPATH/local/$1" ]; then
-                BUFFER=$(grep -R "$1" $VEILERDBPATH/sync | grep "aliases")
-                for ALIAS in $BUFFER; do
+                for ALIAS in $(find $VEILERDBPATH/sync -name "aliases" | xargs grep "$1"); do
                     if [ "$1" == "$(echo $ALIAS | sed 's/.*://')" ]; then
                         PACKAGES+=("$(echo $ALIAS | sed 's/.*sync\///; s/\/.*//')")
                         CONT=1
@@ -1072,42 +1075,6 @@ case $1 in
             fi
         }
     ;;
-	help)
-        echo -e "${YELLOW}$0 Usage:${WHITE} $0 <COMMAND> <OPTIONS> ${NC}"
-		echo -e "${WHITE}$0 unveil|veil <OPTIONS> [PACKAGE]${NC}"
-		echo -e "${WHITE}$0 Options:${NC}" 
-        echo -e "${GRAY}--quiet${NC}${WHITE}         : Displays quiet output, not too detailed.${NC}"
-	    echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)${NC}"
-        echo -e "${GRAY}--test${NC}${WHITE}          : Enables test harnesses${NC}" 
-        echo -e "${GRAY}--ask${NC}${WHITE}           : Use confirmation prompts${NC}"
-        echo -e "${GRAY}--no-root${NC}${WHITE}       : Don't use superuser priveledges ( might cause errors when installing in priveleged directories )${NC}"
-        echo -e "${GRAY}--skip-clean${NC}${WHITE}    : Skip deleting existing build directories in cache ( will cause the package manager to not start building from scratch${NC}"
-        echo -e "${GRAY}--skip-deps${NC}${WHITE}     : Skip dependency check ( can break packages )${NC}"
-        echo -e "${GRAY}--skip-installed${NC}${WHITE}: Skip installing packages provided to the package manager if they are already installed on the system.${NC}"
-        echo -e "${GRAY}--megabytes${NC}${WHITE}     : Show size in megabytes instead of kilobytes${NC}"
-        echo -e "${GRAY}--skip-integrity${NC}${WHITE}: Do not verify package integrity ( unsafe and can lead to security issues and building corrupted packages )${NC}"
-        echo -e "${GRAY}--no-errexit${NC}${WHITE}    : Do not exit upon an error WHILE building the packages ( might cause you to have broken packages installed lol )${NC}"
-        echo -e "${GRAY}--exclude-deps PKG1,PKG2,...${NC}${WHITE}  : Do not install depedencies in the comma seperated list argument ( lol why you leave them )${NC}"
-        echo -e "${GRAY}--config <PATH>${NC}${WHITE} : Use a custom configuration file instead of the default one." 
-		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
-        echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /${NC}"
-        echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}"
-		echo -e "${WHITE}veil       : Uninstalls a package installed on the system${NC}"
-		echo -e "${WHITE}strengthen : Updates all packages installed on the system${NC}"
-		echo -e "${WHITE}search     : Matches regex with a package name in the package database${NC}"
-        echo -e "${WHITE}   -> ${GRAY}--skip-description: ${WHITE}To avoid matching the regex with found descriptions${NC}"
-		echo -e "${WHITE}help       : Displays this output${NC}"
-        echo -e "${WHITE}version    : Display package manager version${NC}"
-        echo -e "${WHITE}info       : Display information about installed packages${NC}"
-        echo -e "${WHITE}dumpvars   : Print all the variables the package manager is going to work with.${NC}"
-        echo -e "${WHITE}rmpkg      : Removes ${RED}ALL${WHITE} the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
-        echo -e "${WHITE}clearcache : Remove ${RED}EVERYTHING${WHITE} in the cache directory of the package manager.${NC}"
-        echo -e "${WHITE}pkgs       : Get number of all packages${NC}"
-        echo -e "${WHITE}list       : List all packages installed${NC}"
-        echo -e "${WHITE}stat       : Display information about all the installed packages${NC}"
-        echo -e "${WHITE}   -> upd  : Update the stat file manually${NC}"
-        echo -e "${YELLOW}Note: ${WHITE}See https://ilovetrees242.github.io/DevHelp/Website/Veiler.html for detailed information${NC}"
-	;;
     version)
             echo -e "${WHITE}I like the ${YELLOW}moon${WHITE}, so this package manager is based of it. This is my 3rd great project out of 5, so I really admire this"
             echo "__    __  _____   o  ___    _____   _____  "
@@ -1123,74 +1090,76 @@ case $1 in
         FOUNDPACKAGESVERSION=()
         FOUNDPACKAGESDESC=()
         FOUNDPACKAGESINSTALLED=()
+
         if [ -z $1 ]; then
             log_err "No package was provided!"
         fi
         if [ $VEILERSKIPDESC -eq 1 ]; then
-            COUNT=0
             for((i=1; i <= $#; i++)){
-                PACKAGES=$(find $VEILERDBPATH/sync -type d -name "*${!i}*")
-                for PACKAGE in $PACKAGES; do
-                    if [ -f $PACKAGE/info ]; then
-                        source $PACKAGE/info 
-                        FOUNDPACKAGES[$COUNT]="$MOONPKGNAME"
-                        FOUNDPACKAGESVERSION[$COUNT]="$MOONPKGVERSION"
-                        FOUNDPACKAGESDESC[$COUNT]="$DESC"
-                        if [ -n ${FOUNDPACKAGES[$COUNT]} ]; then
-                            if [ -d "$VEILERDBPATH/local/${FOUNDPACKAGES[$COUNT]}" ]; then
-                                FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}"
-                            else
-                                FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}No${NC}"
-                            fi  
-                            ((COUNT++))
-                        fi
+                for PACKAGE in $(echo $VEILERDBPATH/sync/* | sed 's/\s/\n/g' | sed 's/.*\///' | grep "${!i}"); do
+                    if [[ -s $VEILERDBPATH/sync/$PACKAGE/info && "${visited[$PACKAGE]}" != "yes" ]]; then
+                        source $VEILERDBPATH/sync/$PACKAGE/info 
+                        FOUNDPACKAGES+=( "$MOONPKGNAME" )
+                        FOUNDPACKAGESVERSION+=( "$MOONPKGVERSION" )
+                        FOUNDPACKAGESDESC+=( "$DESC" )
+                        [ -d "$VEILERDBPATH/local/$MOONPKGNAME" ] && FOUNDPACKAGESINSTALLED+=( " ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}" ) || FOUNDPACKAGESINSTALLED+=( " ${WHITE}||| ${YELLOW}Installed : ${WHITE}No${NC}" )
                     fi
+                    unset MOONPKGNAME MOONPKGVERSION DESC
+                    visited[$PACKAGE]="yes"
+                done
+                for ALIAS in $(find $VEILERDBPATH/sync -name "aliases" -type f | xargs grep "${!i}" | sed 's/:.*//'); do
+                    source $(dirname $ALIAS)/info
+                    if [ "${visited["$MOONPKGNAME"]}" == "yes" ]; then continue; fi
+                    FOUNDPACKAGES+=( "$MOONPKGNAME" )
+                    FOUNDPACKAGESVERSION+=( "$MOONPKGVERSION" )
+                    FOUNDPACKAGESDESC+=( "$DESC" )
+                    [ -d "$VEILERDBPATH/local/$MOONPKGNAME" ] && FOUNDPACKAGESINSTALLED+=( " ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}" ) || FOUNDPACKAGESINSTALLED+=( " ${WHITE}||| ${YELLOW}Installed : ${WHITE}No${NC}" )
+                    visited[$MOONPKGNAME]="yes"
+                    unset MOONPKGNAME MOONPKGVERSION DESC
                 done
             }   
+
             for((i=0; i < ${#FOUNDPACKAGES[@]}; i++)){
                 echo -ne "${BLUE}${FOUNDPACKAGES[$i]}${NC}"
                 echo -ne "${GRAY}(${FOUNDPACKAGESVERSION[$i]})${NC}"
                 echo -e "${FOUNDPACKAGESINSTALLED[$i]}"
-                echo -e "\t${WHITE}${FOUNDPACKAGESDESC[$i]}${NC}"
+                echo -e "  ${WHITE}${FOUNDPACKAGESDESC[$i]}${NC}"
             } | more
         else
-            COUNT=0
             for((i=1; i <= $#; i++)){
-                PACKAGES=$(ls $VEILERDBPATH/sync/)
-                for PACKAGE in $PACKAGES; do
+                for PACKAGE in $VEILERDBPATH/sync/*; do
                     if [ -s $VEILERDBPATH/sync/$PACKAGE/info ]; then 
                         source $VEILERDBPATH/sync/$PACKAGE/info 
-                        FOUNDPACKAGES[$COUNT]=$(echo $MOONPKGNAME | grep "${!i}")
-                        FOUNDPACKAGESDESC[$COUNT]=$(echo $DESC | grep "${!i}")
-                        if [[ -n "${FOUNDPACKAGES[$COUNT]}" || -n "${FOUNDPACKAGESDESC[$COUNT]}" ]]; then
-                            FOUNDPACKAGES[$COUNT]="$MOONPKGNAME"
-                            FOUNDPACKAGESVERSION[$COUNT]="$MOONPKGVERSION"
-                            FOUNDPACKAGESDESC[$COUNT]="$DESC"
-                            if [ -d "$VEILERDBPATH/local/${FOUNDPACKAGES[$COUNT]}" ]; then
-                                FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}"
-                            else
-                                FOUNDPACKAGESINSTALLED[$COUNT]=" ${WHITE}||| ${YELLOW}Installed : ${WHITE}No${NC}"
-                            fi  
+                        if [[ -n "$(echo $MOONPKGNAME | grep "${!i}")" || -n "$(echo $DESC | grep "${!i}")" ]]; then
+                            FOUNDPACKAGES+=( "$MOONPKGNAME" )
+                            FOUNDPACKAGESVERSION+=( "$MOONPKGVERSION" )
+                            FOUNDPACKAGESDESC+=( "$DESC" )
+                            [ -d "$VEILERDBPATH/local/$MOONPKGNAME" ] && FOUNDPACKAGESINSTALLED+=( " ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}" ) || FOUNDPACKAGESINSTALLED+=( " ${WHITE}||| ${YELLOW}Installed : ${WHITE}No${NC}" )
                             ((COUNT++))
                             unset MOONPKGNAME MOONPKGVERSION DESC
+                            visited[$PACKAGE]="yes"
                         fi
+                    else 
+                        break
                     fi
                 done
+                for ALIAS in $(find $VEILERDBPATH/sync -name "aliases" -type f | xargs grep "${!i}" | sed 's/:.*//'); do
+                    source $(dirname $ALIAS)/info
+                    if [ "${visited["$MOONPKGNAME"]}" == "yes" ]; then continue; fi
+                    FOUNDPACKAGES+=( "$MOONPKGNAME" )
+                    FOUNDPACKAGESVERSION+=( "$MOONPKGVERSION" )
+                    FOUNDPACKAGESDESC+=( "$DESC" )
+                    [ -d "$VEILERDBPATH/local/$MOONPKGNAME" ] && FOUNDPACKAGESINSTALLED+=( " ${WHITE}||| ${YELLOW}Installed : ${WHITE}Yes${NC}" ) || FOUNDPACKAGESINSTALLED+=( " ${WHITE}||| ${YELLOW}Installed : ${WHITE}No${NC}" )
+                    visited[$MOONPKGNAME]="yes"
+                    unset MOONPKGNAME MOONPKGVERSION DESC
+                done
             }
-            SKIP=0
-            DONEPACKAGES=()
-            for((i=0; i < ${#FOUNDPACKAGES[@]} - 1; i++)){
-                for((j=0; j < ${#DONEPACKAGES[@]}; j++)){
-                    if [ "${DONEPACKAGES[$j]}" == "${FOUNDPACKAGES[$i]}" ]; then
-                        SKIP=1
-                    fi
-                }
-                if [ $SKIP -eq 1 ]; then SKIP=0; continue; fi
+
+            for((i=0; i < ${#FOUNDPACKAGES[@]}; i++)){
                 echo -ne "${BLUE}${FOUNDPACKAGES[$i]} ${NC}"
                 echo -ne "${GRAY}(${FOUNDPACKAGESVERSION[$i]})${NC}"
                 echo -e "${FOUNDPACKAGESINSTALLED[$i]}"
-                echo -e "\t${WHITE}${FOUNDPACKAGESDESC[$i]}${NC}"
-                DONEPACKAGES+=( ${FOUNDPACKAGES[$i]} )
+                echo -e "  ${WHITE}${FOUNDPACKAGESDESC[$i]}${NC}"
             } | more
         fi
     ;;
@@ -1303,6 +1272,42 @@ case $1 in
             echo -e "${WHITE}Total installed files: ${YELLOW}$(sed -n '3p' $STATFILE)${NC}"
         fi
     ;;
+	help)
+        echo -e "${YELLOW}$0 Usage:${WHITE} $0 <COMMAND> <OPTIONS> ${NC}"
+		echo -e "${WHITE}$0 unveil|veil <OPTIONS> [PACKAGE]${NC}"
+		echo -e "${WHITE}$0 Options:${NC}" 
+        echo -e "${GRAY}--quiet${NC}${WHITE}         : Displays quiet output, not too detailed.${NC}"
+	    echo -e "${GRAY}--documentation${NC}${WHITE} : Enables documentation (this might install extra dependencies)${NC}"
+        echo -e "${GRAY}--test${NC}${WHITE}          : Enables test harnesses${NC}" 
+        echo -e "${GRAY}--ask${NC}${WHITE}           : Use confirmation prompts${NC}"
+        echo -e "${GRAY}--no-root${NC}${WHITE}       : Don't use superuser priveledges ( might cause errors when installing in priveleged directories )${NC}"
+        echo -e "${GRAY}--skip-clean${NC}${WHITE}    : Skip deleting existing build directories in cache ( will cause the package manager to not start building from scratch${NC}"
+        echo -e "${GRAY}--skip-deps${NC}${WHITE}     : Skip dependency check ( can break packages )${NC}"
+        echo -e "${GRAY}--skip-installed${NC}${WHITE}: Skip installing packages provided to the package manager if they are already installed on the system.${NC}"
+        echo -e "${GRAY}--megabytes${NC}${WHITE}     : Show size in megabytes instead of kilobytes${NC}"
+        echo -e "${GRAY}--skip-integrity${NC}${WHITE}: Do not verify package integrity ( unsafe and can lead to security issues and building corrupted packages )${NC}"
+        echo -e "${GRAY}--no-errexit${NC}${WHITE}    : Do not exit upon an error WHILE building the packages ( might cause you to have broken packages installed lol )${NC}"
+        echo -e "${GRAY}--exclude-deps PKG1,PKG2,...${NC}${WHITE}  : Do not install depedencies in the comma seperated list argument ( lol why you leave them )${NC}"
+        echo -e "${GRAY}--config <PATH>${NC}${WHITE} : Use a custom configuration file instead of the default one." 
+		echo -e "${WHITE}unveil     : Installs a package from source.${NC}"
+        echo -e "${WHITE}   -> ${GRAY}--with-dest <DESTDIR> ${WHITE}: Installs package into <DESTDIR> instead of default /${NC}"
+        echo -e "${WHITE}   -> ${GRAY}--build-only          ${WHITE}: This option makes the package manager only compile and build the package and skip installing it.${NC}"
+		echo -e "${WHITE}veil       : Uninstalls a package installed on the system${NC}"
+		echo -e "${WHITE}strengthen : Updates all packages installed on the system${NC}"
+		echo -e "${WHITE}search     : Matches regex with a package name in the package database${NC}"
+        echo -e "${WHITE}   -> ${GRAY}--skip-description: ${WHITE}To avoid matching the regex with found descriptions${NC}"
+		echo -e "${WHITE}help       : Displays this output${NC}"
+        echo -e "${WHITE}version    : Display package manager version${NC}"
+        echo -e "${WHITE}info       : Display information about installed packages${NC}"
+        echo -e "${WHITE}dumpvars   : Print all the variables the package manager is going to work with.${NC}"
+        echo -e "${WHITE}rmpkg      : Removes ${RED}ALL${WHITE} the tarballs of the specified package in the cache ( useful for reducing disk space usage and making the package manager download the package build tarball again, which may be done if the maintainer has applied some patches to the build script )${NC}"
+        echo -e "${WHITE}clearcache : Remove ${RED}EVERYTHING${WHITE} in the cache directory of the package manager.${NC}"
+        echo -e "${WHITE}pkgs       : Get number of all packages${NC}"
+        echo -e "${WHITE}list       : List all packages installed${NC}"
+        echo -e "${WHITE}stat       : Display information about all the installed packages${NC}"
+        echo -e "${WHITE}   -> upd  : Update the stat file manually${NC}"
+        echo -e "${YELLOW}Note: ${WHITE}See https://ilovetrees242.github.io/DevHelp/Website/Veiler.html for detailed information${NC}"
+	;;
 	*)
         if [ -z $1 ]; then 
             log_err "No action specified!"
