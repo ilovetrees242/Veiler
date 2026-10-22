@@ -21,6 +21,7 @@ Useflags change how the package is built and installed, or it enables you to use
 -READLINE
 -RPATH
 -SELINUX
+-SYSTEMD
 -XZ
 -ZLIB
 -ZSTD
