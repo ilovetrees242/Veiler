@@ -199,66 +199,71 @@ checkIfAlreadyInstalled(){
     echo ${newPackages[@]}
 }
 getBuildTarballs(){
+    local WGETFLAGS="--show-progress"
+    [ $VEILERQUIET -eq 0 ] && WGETFLAGS="-nv $WGETFLAGS" || WGETFLAGS="-q $WGETFLAG"
     log_info imp "Fetching package(s)... ${GRAY}[${#PKGNAME[@]}]"
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
         unset MOONPKGNAME MOONPKGVERSION DESC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE EXTENSION SRC
-        if [ ! -f "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" ]; then
-            if [ $VEILERQUIET -eq 0 ]; then 
-                wget -nv --show-progress "$PKGREPO"/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz
-            else 
-                wget -q --show-progress "$PKGREPO"/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz
-            fi
-            if [ $? -ne 0 ]; then 
-                log_err noexit "$GRAY($((i+1))/${#PKGNAME[@]})${WHITE} Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!" && log_info tip "Maybe try running $0 ${GRAY}sync?${NC}"
-                exit 1
-            fi
-        fi
         if [ -n "$MOONBASEPKG" ]; then
             source $VEILERDBPATH/sync/$MOONBASEPKG/info
             unset MOONPKG DESC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE EXTENSION SRC EXTENSION 
             log_info notice "Downloading the base package ${BLUE}>>> ${WHITE}$MOONBASEPKG${WHITE} for ${BLUE}>>> ${WHITE}${PKGNAME[$i]}${NC}"
-        fi
-        unset MOONBASEPKG
-    }
-    if [[ $((VEILERSKIPINTEGRITY & 2)) -eq 0 ]]; then
-        for((i=0; i < ${#PKGNAME[@]}; i++)){
+            if [ ! -f "build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz" ]; then
+                wget $WGETFLAGS "$PKGREPO/build-$MOONPKGNAME-$MOONPKGVERSION.tar.gz"
+                if [ $? -ne 0 ]; then
+                    log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not download the base package ${BLUE}>>>$MOONPKGNAME${WHITE} for the package ${PKGNAME[$i]}!" 
+                    log_info tip "Maybe try running $0 ${GRAY}sync?${NC}"
+                    exit 1
+                fi
+            fi
             source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
-            unset MOONPKGNAME MOONPKGVERSION DESC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE EXTENSION SRC
-            if [ -n "$MOONBASEPKG" ]; then
-                source $VEILERDBPATH/sync/$MOONBASEPKG/info
-                log_info imp "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Verifying base package integrity ${BLUE}>>>${WHITE} For the package${BLUE}>>> ${GRAY}[${PKGNAME[$i]}]${NC}"
-                unset MOONBASEPKG
+        fi
+        if [ ! -f "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz" ]; then
+            wget -q --show-progress "$PKGREPO"/build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz
+            if [ $? -ne 0 ]; then
+                log_err noexit "$GRAY($((i+1))/${#PKGNAME[@]})${WHITE} Could not download the package ${YELLOW}${PKGNAME[$i]}${WHITE}!" 
+                log_info tip "Maybe try running $0 ${GRAY}sync?${NC}" 
+                exit 1
+            fi
+            if [[ $((VEILERSKIPINTEGRITY & 2)) -eq 0 ]]; then
+                unset MOONPKGNAME MOONPKGVERSION DESC INSTALLEDSIZE WODOCINSTALLEDSIZE REQDSKSPACE DOWNLOADSIZE EXTENSION SRC
+                if [ -n "$MOONBASEPKG" ]; then
+                    source $VEILERDBPATH/sync/$MOONBASEPKG/info
+                    log_info imp "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Verifying base package integrity ${BLUE}>>>${WHITE} For the package ${BLUE}>>> ${GRAY}[${PKGNAME[$i]}]${NC}"
+                    if [[ -n "$SHA256SUM" && ${#SHA256SUM} -eq 64 ]]; then
+                        BUFFER=$(sha256sum build-"$MOONPK G".tar.gz)
+                        if [ "${BUFFER%% *}" != "$SHA256SUM" ]; then
+                            log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not verify package integrity for the build tarball of the base package ${RED}>>> ${WHITE}$MOONPKGNAME of the package ${RED}>>>${WHITE}${PKGNAME[$i]}"
+                            log_info notice "Expected sha256sum hash: $SHA256SUM" 
+                            log_info notice "Got sha256sum hash: ${BUFFER%% *}" 
+                            exit 1
+                        fi
+                    else
+                        log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]}) No valid sha256sum hash found for the base package ${RED}>>>${WHITE} $MOONPKGNAME! ${GRAY}[${PKGNAME[$i]}]"
+                        log_info tip "The length must be ${BLUE}64${WHITE} characters and the variable must be declared."
+                        exit 1
+                    fi
+                    unset MOONBASEPKG
+                fi
+                source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
+                log_info imp "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Verifying package integrity ${YELLOW}>>> ${GRAY}[${PKGNAME[$i]}]${NC}"
                 if [[ -n "$SHA256SUM" && ${#SHA256SUM} -eq 64 ]]; then
-                    BUFFER=$(sha256sum build-"$MOONPKG".tar.gz)
+                    BUFFER=$(sha256sum build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz)
                     if [ "${BUFFER%% *}" != "$SHA256SUM" ]; then
-                        log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not verify package integrity for the build tarball of the base package ${RED}>>> ${WHITE}$MOONPKGNAME of the package ${RED}>>>${WHITE}${PKGNAME[$i]}"
+                        log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not verify integrity for the build tarball of the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"
                         log_info notice "Expected sha256sum hash: $SHA256SUM" 
                         log_info notice "Got sha256sum hash: ${BUFFER%% *}" 
                         exit 1
                     fi
                 else
-                    log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]}) No valid sha256sum hash found for the base package ${RED}>>>${WHITE} $MOONPKGNAME! ${GRAY}[${PKGNAME[$i]}]"
+                    log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]}) No valid sha256sum hash found! ${GRAY}[${PKGNAME[$i]}]"
                     log_info tip "The length must be ${BLUE}64${WHITE} characters and the variable must be declared."
                     exit 1
                 fi
             fi
-            log_info imp "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Verifying package integrity ${YELLOW}>>> ${GRAY}[${PKGNAME[$i]}]${NC}"
-            if [[ -n "$SHA256SUM" && ${#SHA256SUM} -eq 64 ]]; then
-                BUFFER=$(sha256sum build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz)
-                if [ "${BUFFER%% *}" != "$SHA256SUM" ]; then
-                    log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Could not verify integrity for the build tarball of the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"
-                    log_info notice "Expected sha256sum hash: $SHA256SUM" 
-                    log_info notice "Got sha256sum hash: ${BUFFER%% *}" 
-                    exit 1
-                fi
-            else
-                log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]}) No valid sha256sum hash found! ${GRAY}[${PKGNAME[$i]}]"
-                log_info tip "The length must be ${BLUE}64${WHITE} characters and the variable must be declared."
-                exit 1
-            fi
-        }
-    fi
+        fi
+    }
 }
 extractBuildTarballs(){
     log_info imp "Extracting the package build tarball(s)..."
@@ -282,6 +287,8 @@ extractBuildTarballs(){
     }
 }
 getSources(){
+    local WGETFLAGS="--show-progress"
+    [ $VEILERQUIET -eq 0 ] && WGETFLAGS="-nv $WGETFLAGS" || WGETFLAGS="-q $WGETFLAGS"
     log_info imp "Getting source(s) [ ${YELLOW}${#PKGNAME[@]}${WHITE} ]..."
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         pushd "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}"" &> /dev/null
@@ -290,7 +297,7 @@ getSources(){
             if [ -n "$MOONBASEPKG" ]; then
                 source $VEILERDBPATH/sync/$MOONBASEPKG/info
                 if [ -z "$EXTENSION" ]; then
-                    log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Valid extension could not be found for base package${RED} >>> ${WHITE}$MOONPKGNAME"
+                    log_err noexit "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Valid extension could not be found for base package${RED} >>> ${WHITE}$MOONPKGNAME of the package ${RED}>>>${WHITE} ${PKGNAME[$i]}"
                     log_info tip "Extensions for the source tarball. Example: acl-2.3.2.tar.xz - extension = .tar.xz. More valid extensions for compressed files: .zip, .tar.zst, .tar.gz, .bzip2"
                     exit 1
                 fi
@@ -304,14 +311,7 @@ getSources(){
             fi
             if [ -n "$SRC" ]; then
                 if [ ! -f "$MOONPKG$EXTENSION" ]; then
-                    if [ $VEILERQUIET -eq 0 ]; then
-                        wget -nv --show-progress "$SRC" -O "$MOONPKG$EXTENSION"
-                    else
-                        wget -q --show-progress "$SRC" -O "$MOONPKG$EXTENSION"
-                    fi
-                fi
-                if [ $? -ne 0 ]; then
-                    log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to download the source for ${PKGNAME[$i]}"
+                    wget $WGETFLAGS "$SRC" -O "$MOONPKG$EXTENSION" || log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to download the source for ${PKGNAME[$i]}"
                 fi
             else
                 if [ $VEILERERREXIT -eq 0 ]; then
@@ -384,7 +384,7 @@ checkDiskSpace(){
 verifyChecksums(){
     if [ $((VEILERSKIPINTEGRITY & 1)) -eq 0 ]; then
         for((i=0; i < ${#PKGNAME[@]}; i++)){
-            echo -ne "\033[2K\r${YELLOW}Important >>> ${GRAY}("$((i+1))"/"${#PKGNAME[@]}") ${WHITE}Verifying package integrity ${DARKBLUE}|||${WHITE} ${PKGNAME[$i]}${NC}"
+            echo -ne "\033[2K\r${YELLOW}Important >>> ${GRAY}("$((i+1))"/"${#PKGNAME[@]}") ${WHITE}Verifying source integrity ${DARKBLUE}>>>${WHITE} ${PKGNAME[$i]}${NC}"
             source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
             if [ -n "$MOONBASEPKG" ]; then
                 source $VEILERDBPATH/sync/$MOONBASEPKG/info
