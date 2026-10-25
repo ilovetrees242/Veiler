@@ -134,6 +134,8 @@ UPGRADEDPACKAGESSYNCVERSION=()
 LOCALPKGVERSIONS=()
 SYNCPKGVERSIONS=()
 
+BUILDUSER=$([ $VEILERNOROOT -eq 0 ] && echo "veiler-build-user" || echo "$USER")
+
 # Space and size related variables
 TOTALDSR=0
 TOTALINSTSIZE=0
@@ -268,7 +270,6 @@ getBuildTarballs(){
 extractBuildTarballs(){
     log_info imp "Extracting the package build tarball(s)..."
     if [ $VEILERQUIET -eq 0 ]; then local TARFLAGS="-v"; fi
-    if [ $VEILERNOROOT -eq 0 ]; then local BUILDUSER="veiler-build-user"; else local BUILDUSER="$USER"; fi
     for((i=0; i < ${#PKGNAME[@]}; i++)){
         echo -e "${GRAY}($((i+1))/${#PKGNAME[@]}) ${WHITE}Extracting ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
         su -c "tar $TARFLAGS -xf "build-"${PKGNAME[$i]}"-"${PKGVERSION[$i]}".tar.gz"" $BUILDUSER
@@ -414,6 +415,7 @@ verifyChecksums(){
 buildPackages(){
     export MAKEFLAGS="$MAKEFLAGS"
     export PKG_CONFIG_PATH="$PKGCONFPATH"
+    local NULL=$([$VEILERQUIET -eq 1] && echo "> /dev/null" || echo -n "")
     USEFLAGS=( ${USEFLAGS[@]} )
     log_info imp "Building the package(s)..."
     GLOBALUSEFLAGS=( ${USEFLAGS[@]} )
@@ -447,7 +449,6 @@ buildPackages(){
                 COUNT=0
             fi
             if [ -n "$MOONBASEPKG" ]; then
-
                 if [ ! -d $MOONPKG ]; then mkdir $MOONPKG; fi
                 source $VEILERDBPATH/sync/$MOONBASEPKG/info
                 cd ../"build-$MOONPKGNAME-$MOONPKGVERSION"
@@ -460,12 +461,9 @@ buildPackages(){
             else 
                 TARFLAGS="--strip-components=0"
             fi
+
             if [ $VEILERQUIET -eq 0 ]; then TARFLAGS="-v $TARFLAGS"; fi
-            if [ $VEILERNOROOT -eq 0 ]; then
-                su -c "mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS" veiler-build-user
-            else
-                mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS
-            fi
+            su -c "mkdir -p $MOONPKG && tar -xf "$MOONPKG".* -C $MOONPKG $TARFLAGS" $BUILDUSER
             unset TARFLAGS
             
             source $VEILERDBPATH/sync/${PKGNAME[$i]}/info
@@ -474,21 +472,14 @@ buildPackages(){
                 cd ..
                 cd "build-$MOONPKGNAME-$MOONPKGVERSION"
             fi
+
             pushd "$MOONPKG" &> /dev/null 
-                if [ $VEILERNOROOT -eq 0 ]; then
-                    if [ $VEILERQUIET -eq 1 ]; then
-                        su -c "VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERDOC=$VEILERDOC VEILERTESTS=$VEILERTESTS CONFIGPARAMS=\"${CONFIGPARAMS[*]}\" ../MOONBUILD build" veiler-build-user > /dev/null
-                    else
-                        su -c "VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERDOC=$VEILERDOC VEILERTESTS=$VEILERTESTS CONFIGPARAMS=\"${CONFIGPARAMS[*]}\" ../MOONBUILD build" veiler-build-user
-                    fi
-                else
-                    if [ $VEILERQUIET -eq 1 ]; then
-                       VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERDOC=$VEILERDOC VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS="${USEFLAGS[*]}" ../MOONBUILD build > /dev/null
-                    else
-                        VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERDOC=$VEILERDOC VEILERQUIET=$VEILERQUIET VEILERTESTS=$VEILERTESTS USEFLAGS="${USEFLAGS[*]}" ../MOONBUILD build
-                    fi
+                su -c "VEILERDEST=$VEILERDEST VEILERPREFIX=$VEILERPREFIX VEILERDBPATH=$VEILERDBPATH VEILERQUIET=$VEILERQUIET VEILERDOC=$VEILERDOC VEILERTESTS=$VEILERTESTS CONFIGPARAMS=\"${CONFIGPARAMS[*]}\" ../MOONBUILD build $NULL" $BUILDUSER
+                if [ $VEILERTESTS -eq 1 ]; then
+                    su -c "../MOONBUILD run-tests $NULL" $BUILDUSER
                 fi
             popd &> /dev/null
+
             if [ $VEILERERREXIT -eq 0 -a $TRAPSET -eq 1 ]; then trap 'log_err "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Failed to install the package ${RED}>>> ${WHITE}${PKGNAME[$i]}"' ERR; TRAPSET=2; fi
             if [ $VEILERONLYBUILD -eq 0 ]; then 
                 echo -e "${GRAY}($((i+1))/${#PKGNAME[@]})${WHITE} Installing ${YELLOW}>>> ${WHITE}${PKGNAME[$i]}${NC}"
